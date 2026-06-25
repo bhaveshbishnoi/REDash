@@ -10,7 +10,7 @@ try {
 const SERVICE_UUID = '0000FFF0-0000-1000-8000-00805f9b34fb'; 
 const SPEED_CHARACTERISTIC = '0000FFF1-0000-1000-8000-00805f9b34fb';
 
-let simulatedInterval: NodeJS.Timeout | null = null;
+let simulatedInterval: any = null;
 
 export const scanForBikes = (onDeviceFound: (device: { id: string; name: string }) => void) => {
   if (!manager) {
@@ -94,7 +94,7 @@ export const subscribeToSpeedUpdates = (
               return;
             }
             if (characteristic?.value) {
-              const decoded = Buffer.from(characteristic.value, 'base64').toString('ascii');
+              const decoded = atob(characteristic.value);
               const parsed = parseInt(decoded, 10);
               if (!isNaN(parsed)) {
                 onSpeedUpdate(parsed);

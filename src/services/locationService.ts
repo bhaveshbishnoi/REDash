@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 
-let simulatedInterval: NodeJS.Timeout | null = null;
+let simulatedInterval: any = null;
 let mockLat = 28.6139; // Start at New Delhi
 let mockLng = 77.2090;
 

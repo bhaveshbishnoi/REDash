@@ -1,15 +1,20 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import React, { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import { Provider } from 'react-redux';
+import { store } from '../store/store';
+import { initOfflineDatabase } from '../services/offlineService';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+export default function AppLayout() {
+  useEffect(() => {
+    initOfflineDatabase();
+  }, []);
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <Provider store={store}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="bluetooth-scan" options={{ title: 'Connect Bike', headerStyle: { backgroundColor: '#121212' }, headerTintColor: '#fff' }} />
+      </Stack>
+    </Provider>
   );
 }

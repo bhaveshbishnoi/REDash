@@ -1,6 +1,4 @@
 import { saveTripOffline, OfflineTrip } from './offlineService';
-import { syncOfflineTripsToFirebase } from './firebaseService';
-import { auth } from '../firebase/config';
 
 let activeTrip: {
   tripId: string;
@@ -33,7 +31,7 @@ export const addTripSegment = async (latitude: number, longitude: number, speed:
 export const endTrip = async (endLat: number, endLng: number, distance: number, duration: number) => {
   if (!activeTrip) throw new Error('No active trip to end');
   
-  const userId = auth.currentUser?.uid || 'anonymous';
+  const userId = 'local_user';
   const endTime = new Date().toISOString();
   
   const speeds = activeTrip.speeds.length > 0 ? activeTrip.speeds : [0];
@@ -61,16 +59,11 @@ export const endTrip = async (endLat: number, endLng: number, distance: number, 
     terrainType,
     timeOfDay,
     routeGeoJSON: JSON.stringify(activeTrip.coordinates),
-    synced: 0,
+    synced: 1, // Offline-only app, so treat it as synced
   };
 
   // Save to SQLite
   saveTripOffline(offlineTrip);
-
-  // Trigger sync in background if auth is logged in
-  if (auth.currentUser) {
-    syncOfflineTripsToFirebase().catch(e => console.warn('Background sync failed:', e));
-  }
 
   activeTrip = null;
   return offlineTrip;
