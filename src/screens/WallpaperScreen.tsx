@@ -3,7 +3,27 @@ import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert, Activ
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { setWallpaper } from '../store/settingsSlice';
-import { fetchWallpapers } from '../services/firebaseService';
+
+const OFFLINE_WALLPAPERS = [
+  {
+    id: 'wp1',
+    title: 'Desert Guerrilla 450',
+    imageUrl: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=600&q=80',
+    category: 'bike',
+  },
+  {
+    id: 'wp2',
+    title: 'Mountain Pass',
+    imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
+    category: 'landscape',
+  },
+  {
+    id: 'wp3',
+    title: 'Cyberpunk Neon Street',
+    imageUrl: 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?auto=format&fit=crop&w=600&q=80',
+    category: 'abstract',
+  }
+];
 
 export default function WallpaperScreen() {
   const dispatch = useDispatch();
@@ -12,10 +32,8 @@ export default function WallpaperScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWallpapers().then((data) => {
-      setWallpapers(data);
-      setLoading(false);
-    });
+    setWallpapers(OFFLINE_WALLPAPERS);
+    setLoading(false);
   }, []);
 
   const handleSelect = (url: string) => {

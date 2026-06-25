@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { router } from 'expo-router';
 import { RootState } from '../store/store';
 import { updateSettings } from '../store/settingsSlice';
 
-export default function SettingsScreen({ navigation }: any) {
+export default function SettingsScreen() {
   const dispatch = useDispatch();
   const settings = useSelector((state: RootState) => state.settings);
 
@@ -47,7 +48,7 @@ export default function SettingsScreen({ navigation }: any) {
 
       <Text style={styles.sectionHeader}>Guerrilla Dash Settings</Text>
       <View style={styles.card}>
-        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('WallpaperGallery')}>
+        <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/(tabs)/settings/wallpaper-gallery' as any)}>
           <Text style={styles.menuText}>Customize Dashboard Wallpaper</Text>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
