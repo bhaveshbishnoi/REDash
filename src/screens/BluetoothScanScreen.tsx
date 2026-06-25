@@ -32,7 +32,7 @@ export default function BluetoothScanScreen() {
       dispatch(setBikeConnected({ 
         id: result.id, 
         name: result.name, 
-        simulated: result.simulated 
+        simulated: false 
       }));
     } catch (e: any) {
       Alert.alert('Connection Failed', e.message || 'Could not connect to the bike.');
@@ -89,12 +89,6 @@ export default function BluetoothScanScreen() {
             <Text style={styles.scanButtonText}>Scan Again</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity
-          style={styles.simButton}
-          onPress={() => handleConnect({ id: 'SIM-RE-GUERRILLA-450', name: 'Guerrilla 450 (Simulated)' })}
-        >
-          <Text style={styles.simButtonText}>Demo: Use Simulated Ride Mode</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -179,19 +173,6 @@ const styles = StyleSheet.create({
   },
   scanButtonText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  simButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#FF5722',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  simButtonText: {
-    color: '#FF5722',
     fontSize: 15,
     fontWeight: 'bold',
   },

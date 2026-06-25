@@ -63,7 +63,7 @@ export default function DashboardScreen() {
       lastCoordRef.current = pos;
 
       // Start GPS location watch
-      const unsubLoc = await startLocationTracking(bike.simulated, (coords) => {
+      const unsubLoc = await startLocationTracking((coords) => {
         // Calculate distance increment
         if (lastCoordRef.current) {
           const dist = calculateDistance(

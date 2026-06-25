@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, Dimensions } from 'react-redux';
-import { View as RNView, Text as RNText, StyleSheet as RNStyleSheet } from 'react-native';
+import { View as RNView, Text as RNText, StyleSheet as RNStyleSheet, Dimensions } from 'react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { getCurrentPosition } from '../services/locationService';
@@ -28,7 +27,7 @@ export default function MapScreenWeb() {
         
         {/* Draw coordinates using standard SVG when there is an active ride */}
         {trip.coordinates.length > 0 ? (
-          <svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <svg style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
             <polyline
               points={trip.coordinates.map((c, i) => `${(c.longitude - 77.2090) * 1000 + 50},${(28.6139 - c.latitude) * 1000 + 50}`).join(' ')}
               fill="none"
@@ -84,7 +83,11 @@ const styles = RNStyleSheet.create({
     shadowRadius: 10,
   },
   gridLines: {
-    ...RNStyleSheet.absoluteFillObject,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     opacity: 0.05,
     borderWidth: 1,
     borderColor: '#fff',
