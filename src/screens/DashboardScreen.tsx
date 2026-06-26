@@ -1,271 +1,228 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ImageBackground, TouchableOpacity, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import * as Location from 'expo-location';
 import { RootState } from '../store/store';
-import { 
-  startNewTrip, 
-  updateTripStats, 
-  incrementTripDuration, 
-  updateTripDistance,
-  resetTrip
-} from '../store/tripSlice';
-import { subscribeToSpeedUpdates } from '../services/bluetoothService';
-import { startLocationTracking, getCurrentPosition } from '../services/locationService';
-import { startTrip as apiStartTrip, addTripSegment as apiAddSegment, endTrip as apiEndTrip } from '../services/tripService';
-import LiveSpeedometer from '../components/LiveSpeedometer';
-import SpeedEmoji from '../components/SpeedEmoji';
-import BluetoothStatus from '../components/BluetoothStatus';
-import { calculateDistance } from '../utils/geoUtils';
+import { getSpeedEmoji } from '../utils/calculations';
+import { startTrip, endTrip, recordTripSegment } from '../services/tripService';
+import { setBikeDisconnected } from '../store/bikeSlice';
+import { disconnectFromTripper } from '../services/wifiService';
 
 export default function DashboardScreen() {
   const dispatch = useDispatch();
-  const settings = useSelector((state: RootState) => state.settings);
-  const bike = useSelector((state: RootState) => state.bike);
-  const trip = useSelector((state: RootState) => state.trip);
-
-  const [currentSpeed, setCurrentSpeed] = useState(0);
-  const [maxSessionSpeed, setMaxSessionSpeed] = useState(0);
-
-  const locationUnsubscribeRef = useRef<(() => void) | null>(null);
-  const speedUnsubscribeRef = useRef<(() => void) | null>(null);
-  const timerIntervalRef = useRef<any | null>(null);
+  const { ssid, k1gConnected } = useSelector((state: RootState) => state.bike);
   
-  // Track last coordinate to calculate distance increments
-  const lastCoordRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const [currentSpeed, setCurrentSpeed] = useState(0);
+  const [maxSpeed, setMaxSpeed] = useState(0);
+  const [wallpaperPath, setWallpaperPath] = useState<string | null>(null);
+  const [isRiding, setIsRiding] = useState(false);
+  const [activeTripId, setActiveTripId] = useState<string | null>(null);
 
-  // Subscribe to speed updates from bluetooth device
   useEffect(() => {
-    if (bike.connected && bike.connectedDevice) {
-      const unsub = subscribeToSpeedUpdates(bike.connectedDevice.id, (speed) => {
-        setCurrentSpeed(speed);
-        if (speed > maxSessionSpeed) {
-          setMaxSessionSpeed(speed);
+    let subscription: Location.LocationSubscription | null = null;
+
+    const setupLocation = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error('Permission to access location was denied');
+        return;
+      }
+
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 1000, 
+          distanceInterval: 10 
+        },
+        (location) => {
+          // Speed is in m/s, convert to km/h
+          const speedInKmH = (location.coords.speed || 0) * 3.6;
+          const displaySpeed = Math.max(0, speedInKmH);
+          
+          setCurrentSpeed(displaySpeed);
+          
+          setMaxSpeed(prev => Math.max(prev, displaySpeed));
+
+          if (isRiding && activeTripId) {
+            recordTripSegment(activeTripId, displaySpeed);
+          }
         }
-      });
-      speedUnsubscribeRef.current = unsub;
-    }
+      );
+    };
+
+    setupLocation();
 
     return () => {
-      if (speedUnsubscribeRef.current) speedUnsubscribeRef.current();
+      if (subscription) {
+        subscription.remove();
+      }
     };
-  }, [bike.connected, bike.connectedDevice, maxSessionSpeed]);
+  }, [isRiding, activeTripId]);
 
-  const handleStartTrip = async () => {
-    try {
-      const pos = await getCurrentPosition();
-      const tripId = await apiStartTrip(pos.latitude, pos.longitude);
-      
-      dispatch(startNewTrip({
-        tripId,
-        startTime: new Date().toISOString(),
-      }));
-
-      lastCoordRef.current = pos;
-
-      // Start GPS location watch
-      const unsubLoc = await startLocationTracking((coords) => {
-        // Calculate distance increment
-        if (lastCoordRef.current) {
-          const dist = calculateDistance(
-            lastCoordRef.current.latitude,
-            lastCoordRef.current.longitude,
-            coords.latitude,
-            coords.longitude
-          );
-          if (dist > 0.01) { // filter noise
-            dispatch(updateTripDistance(dist));
-            lastCoordRef.current = { latitude: coords.latitude, longitude: coords.longitude };
-          }
-        } else {
-          lastCoordRef.current = { latitude: coords.latitude, longitude: coords.longitude };
-        }
-
-        // Add segment and update stats
-        const segment = {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          speed: currentSpeed,
-          timestamp: new Date().toISOString(),
-          altitude: coords.altitude || undefined,
-          heading: coords.heading || undefined,
-        };
-
-        dispatch(updateTripStats({ speed: currentSpeed, segment }));
-        apiAddSegment(coords.latitude, coords.longitude, currentSpeed);
-      });
-
-      locationUnsubscribeRef.current = unsubLoc;
-
-      // Start duration increment timer
-      timerIntervalRef.current = setInterval(() => {
-        dispatch(incrementTripDuration(1));
-      }, 1000);
-
-    } catch (e: any) {
-      Alert.alert('Error', 'Failed to start trip recording');
+  const handleStartRide = async () => {
+    if (isRiding) {
+      // End ride
+      if (activeTripId) {
+        await endTrip(activeTripId);
+      }
+      setIsRiding(false);
+      setActiveTripId(null);
+    } else {
+      // Start ride
+      const tripId = await startTrip();
+      setActiveTripId(tripId);
+      setIsRiding(true);
+      setMaxSpeed(0); // reset max speed for new ride
     }
   };
 
-  const handleEndTrip = async () => {
-    if (!trip.tripId) return;
-
-    // Clean up timers and subscriptions
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
+  const handleDisconnect = async () => {
+    if (ssid && ssid !== 'OFFLINE_MODE') {
+      await disconnectFromTripper();
     }
-    if (locationUnsubscribeRef.current) {
-      locationUnsubscribeRef.current();
-      locationUnsubscribeRef.current = null;
-    }
-
-    try {
-      const endLat = lastCoordRef.current?.latitude || 28.6139;
-      const endLng = lastCoordRef.current?.longitude || 77.2090;
-      
-      await apiEndTrip(endLat, endLng, trip.distance, trip.duration);
-      Alert.alert('Trip Saved', `Distance: ${trip.distance} km\nDuration: ${Math.round(trip.duration / 60)} mins`);
-    } catch (e) {
-      Alert.alert('Warning', 'Failed to sync trip online, cached locally.');
-    } finally {
-      dispatch(resetTrip());
-      lastCoordRef.current = null;
-    }
+    dispatch(setBikeDisconnected());
   };
 
-  const formatDuration = (sec: number) => {
-    const hrs = Math.floor(sec / 3600);
-    const mins = Math.floor((sec % 3600) / 60);
-    const secs = sec % 60;
-    return `${hrs > 0 ? hrs + 'h ' : ''}${mins}m ${secs}s`;
-  };
+  const isDay = new Date().getHours() >= 6 && new Date().getHours() < 18;
 
   return (
     <ImageBackground
-      source={settings.wallpaperUrl ? { uri: settings.wallpaperUrl } : undefined}
-      style={[styles.container, !settings.wallpaperUrl && { backgroundColor: '#0B0B0B' }]}
+      source={wallpaperPath ? { uri: wallpaperPath } : require('../../assets/images/splash-icon.png')}
+      style={styles.container}
+      resizeMode="cover"
     >
       <View style={styles.overlay}>
-        <BluetoothStatus />
-
-        <View style={styles.speedometerContainer}>
-          <LiveSpeedometer speed={currentSpeed} maxSpeed={maxSessionSpeed} />
-          <SpeedEmoji speed={currentSpeed} size={70} />
+        <View style={styles.header}>
+            <Text style={styles.networkText}>
+                {ssid === 'OFFLINE_MODE' ? 'Offline Mode' : `Connected to: ${ssid}`}
+            </Text>
+            {k1gConnected && <Text style={styles.k1gBadge}>Dash Synced</Text>}
         </View>
 
-        {trip.active ? (
-          <View style={styles.tripConsole}>
-            <Text style={styles.tripHeading}>🔴 Recording Trip</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.stat}>
-                <Text style={styles.statVal}>{trip.distance} km</Text>
-                <Text style={styles.statLabel}>Distance</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statVal}>{formatDuration(trip.duration)}</Text>
-                <Text style={styles.statLabel}>Time</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statVal}>{trip.avgSpeed} km/h</Text>
-                <Text style={styles.statLabel}>Avg Speed</Text>
-              </View>
-            </View>
+        {/* Speed Display */}
+        <Text style={styles.speedText}>
+          {Math.round(currentSpeed)}
+        </Text>
+        <Text style={styles.speedLabel}>km/h</Text>
 
-            <TouchableOpacity style={[styles.tripButton, styles.stopBtn]} onPress={handleEndTrip}>
-              <Text style={styles.tripButtonText}>Stop Recording</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.tripConsole}>
-            <Text style={styles.readyText}>Ignition Connected & Ready</Text>
-            <TouchableOpacity style={[styles.tripButton, styles.startBtn]} onPress={handleStartTrip}>
-              <Text style={styles.tripButtonText}>Start New Ride</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Speed Emoji */}
+        <Text style={styles.emojiText}>
+          {getSpeedEmoji(currentSpeed)}
+        </Text>
+
+        {/* Stats */}
+        <View style={styles.statsContainer}>
+          <Text style={styles.statText}>
+            Max Speed: {Math.round(maxSpeed)} km/h
+          </Text>
+          <Text style={styles.statText}>
+            Terrain: {currentSpeed > 50 ? '🛣️ Highway' : '🏙️ City'}
+          </Text>
+          <Text style={styles.statText}>
+            Time: {isDay ? '☀️ Day' : '🌙 Night'}
+          </Text>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            onPress={handleStartRide}
+            style={[styles.button, { backgroundColor: isRiding ? '#ff4500' : '#00ff00' }]}
+          >
+            <Text style={[styles.buttonText, { color: isRiding ? '#fff' : '#000' }]}>
+              {isRiding ? 'End Ride' : 'Start Ride'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDisconnect}
+            style={[styles.button, { backgroundColor: '#333' }]}
+          >
+            <Text style={styles.buttonText}>
+              Disconnect
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    justifyContent: 'space-between',
-    paddingBottom: 24,
-  },
-  speedometerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  tripConsole: {
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: '#262626',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-  },
-  tripHeading: {
-    fontSize: 14,
-    color: '#FF3D00',
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  readyText: {
-    color: '#00E676',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 20,
-  },
-  stat: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statVal: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#666666',
-    marginTop: 4,
-  },
-  tripButton: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  startBtn: {
-    backgroundColor: '#FF5722',
-  },
-  stopBtn: {
-    backgroundColor: '#333333',
-    borderWidth: 1,
-    borderColor: '#FF3D00',
-  },
-  tripButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+    container: {
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        backgroundColor: '#111'
+    },
+    overlay: {
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0,0,0,0.7)', 
+        padding: 30, 
+        borderRadius: 20,
+        width: '85%'
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+        gap: 10
+    },
+    networkText: {
+        color: '#ccc',
+        fontSize: 14,
+    },
+    k1gBadge: {
+        backgroundColor: '#00ff00',
+        color: '#000',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        fontSize: 10,
+        fontWeight: 'bold',
+        overflow: 'hidden'
+    },
+    speedText: {
+        fontSize: 84, 
+        fontWeight: 'bold', 
+        color: '#fff', 
+        marginBottom: -10 
+    },
+    speedLabel: {
+        fontSize: 18, 
+        color: '#ccc', 
+        marginBottom: 20 
+    },
+    emojiText: {
+        fontSize: 70, 
+        marginBottom: 20 
+    },
+    statsContainer: {
+        marginTop: 20, 
+        gap: 10,
+        alignItems: 'center'
+    },
+    statText: {
+        color: '#fff', 
+        fontSize: 16, 
+        textAlign: 'center'
+    },
+    buttonContainer: {
+        flexDirection: 'row', 
+        gap: 15, 
+        marginTop: 40 
+    },
+    button: {
+        paddingVertical: 14, 
+        paddingHorizontal: 24, 
+        borderRadius: 12,
+        minWidth: 120,
+        alignItems: 'center'
+    },
+    buttonText: {
+        color: '#fff', 
+        fontWeight: 'bold', 
+        fontSize: 16 
+    }
 });

@@ -1,54 +1,40 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface DiscoveredDevice {
-  id: string;
-  name: string;
-}
-
 interface BikeState {
-  connected: boolean;
-  connectedDevice: DiscoveredDevice | null;
+  connected: boolean; // General connection state
+  ssid: string | null;
+  k1gConnected: boolean;
   scanning: boolean;
-  discoveredDevices: DiscoveredDevice[];
-  simulated: boolean;
 }
 
 const initialState: BikeState = {
   connected: false,
-  connectedDevice: null,
+  ssid: null,
+  k1gConnected: false,
   scanning: false,
-  discoveredDevices: [],
-  simulated: false,
 };
 
 const bikeSlice = createSlice({
   name: 'bike',
   initialState,
   reducers: {
-    setBikeConnected: (state, action: PayloadAction<{ id: string; name: string; simulated?: boolean }>) => {
+    setBikeConnected: (state, action: PayloadAction<{ ssid: string }>) => {
       state.connected = true;
-      state.connectedDevice = { id: action.payload.id, name: action.payload.name };
-      state.simulated = !!action.payload.simulated;
+      state.ssid = action.payload.ssid;
+    },
+    setK1gConnected: (state, action: PayloadAction<boolean>) => {
+      state.k1gConnected = action.payload;
     },
     setBikeDisconnected: (state) => {
       state.connected = false;
-      state.connectedDevice = null;
-      state.simulated = false;
+      state.ssid = null;
+      state.k1gConnected = false;
     },
     setScanning: (state, action: PayloadAction<boolean>) => {
       state.scanning = action.payload;
-      if (action.payload) {
-        state.discoveredDevices = [];
-      }
-    },
-    addDiscoveredDevice: (state, action: PayloadAction<DiscoveredDevice>) => {
-      const exists = state.discoveredDevices.find(d => d.id === action.payload.id);
-      if (!exists) {
-        state.discoveredDevices.push(action.payload);
-      }
     },
   },
 });
 
-export const { setBikeConnected, setBikeDisconnected, setScanning, addDiscoveredDevice } = bikeSlice.actions;
+export const { setBikeConnected, setK1gConnected, setBikeDisconnected, setScanning } = bikeSlice.actions;
 export default bikeSlice.reducer;
