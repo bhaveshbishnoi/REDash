@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getUserStats, getRidingPatterns } from '../services/analyticsService';
+import { getAllTrips } from '../services/tripService';
 import WeeklyRidesChart from '../components/ChartComponents/WeeklyRidesChart';
 import SpeedDistributionChart from '../components/ChartComponents/SpeedDistributionChart';
 import FuelEfficiencyChart from '../components/ChartComponents/FuelEfficiencyChart';
@@ -11,15 +11,46 @@ export default function StatsScreen() {
   const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
-  const [patterns, setPatterns] = useState<any>(null);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const s = await getUserStats();
-      const p = await getRidingPatterns();
-      setStats(s);
-      setPatterns(p);
+      const allTrips = await getAllTrips();
+      
+      let totalDistance = 0;
+      let bestSpeed = 0;
+      let totalSpeed = 0;
+      let longestRideTime = 0;
+      let totalRidingTime = 0;
+      
+      const byDay: Record<string, number> = {
+          'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+      };
+      
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      for (const t of allTrips as any[]) {
+          totalDistance += (t.distance || 0);
+          bestSpeed = Math.max(bestSpeed, t.maxSpeed || 0);
+          totalSpeed += (t.avgSpeed || 0);
+          longestRideTime = Math.max(longestRideTime, t.duration || 0);
+          totalRidingTime += (t.duration || 0);
+          
+          if (t.startTime) {
+              const dayName = days[new Date(t.startTime).getDay()];
+              byDay[dayName] += 1;
+          }
+      }
+
+      setStats({
+          totalDistance: totalDistance.toFixed(1),
+          totalRides: allTrips.length,
+          bestSpeed: bestSpeed.toFixed(1),
+          avgSpeed: allTrips.length > 0 ? (totalSpeed / allTrips.length).toFixed(1) : '0',
+          longestRideTime: longestRideTime.toFixed(0),
+          totalRidingTime: totalRidingTime.toFixed(0),
+          byDay
+      });
     } catch (e) {
       console.warn('Failed to load stats:', e);
     } finally {
@@ -57,8 +88,7 @@ export default function StatsScreen() {
         <StatCard label="Longest Ride" value={`${stats.longestRideTime} mins`} />
         <StatCard label="Riding Time" value={`${stats.totalRidingTime} mins`} />
       </View>
-
-      <WeeklyRidesChart data={patterns.byDay} />
+      <WeeklyRidesChart data={stats.byDay} />
       <SpeedDistributionChart />
       <FuelEfficiencyChart />
     </ScrollView>
