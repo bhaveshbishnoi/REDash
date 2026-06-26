@@ -25,49 +25,49 @@ class DashWifiModule : Module() {
 
       if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
          promise.reject("UNSUPPORTED", "WifiNetworkSpecifier requires Android 10+", null)
-         return@AsyncFunction
+      } else {
+        val specifier = WifiNetworkSpecifier.Builder()
+          .setSsidPattern(PatternMatcher(prefix, PatternMatcher.PATTERN_PREFIX))
+          .build()
+
+        val request = NetworkRequest.Builder()
+          .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+          .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+          .setNetworkSpecifier(specifier)
+          .build()
+
+        networkCallback?.let {
+            try { cm.unregisterNetworkCallback(it) } catch (e: Exception) {}
+        }
+
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                val caps = cm.getNetworkCapabilities(network)
+                val info = caps?.transportInfo as? WifiInfo
+                val ssid = info?.ssid?.trim('"') ?: "RE_CONNECTED"
+                
+                promise.resolve(ssid)
+            }
+
+            override fun onUnavailable() {
+                promise.reject("UNAVAILABLE", "User cancelled or dash not found", null)
+                networkCallback = null
+            }
+        }
+
+        cm.requestNetwork(request, networkCallback!!, 30_000)
       }
-
-      val specifier = WifiNetworkSpecifier.Builder()
-        .setSsidPattern(PatternMatcher(prefix, PatternMatcher.PATTERN_PREFIX))
-        .build()
-
-      val request = NetworkRequest.Builder()
-        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-        .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        .setNetworkSpecifier(specifier)
-        .build()
-
-      networkCallback?.let {
-          try { cm.unregisterNetworkCallback(it) } catch (e: Exception) {}
-      }
-
-      networkCallback = object : ConnectivityManager.NetworkCallback() {
-          override fun onAvailable(network: Network) {
-              val caps = cm.getNetworkCapabilities(network)
-              val info = caps?.transportInfo as? WifiInfo
-              val ssid = info?.ssid?.trim('"') ?: "RE_CONNECTED"
-              
-              promise.resolve(ssid)
-          }
-
-          override fun onUnavailable() {
-              promise.reject("UNAVAILABLE", "User cancelled or dash not found", null)
-              networkCallback = null
-          }
-      }
-
-      cm.requestNetwork(request, networkCallback!!, 30_000)
     }
 
     AsyncFunction("disconnect") {
-        val context = appContext.reactContext ?: return@AsyncFunction
+        val context = appContext.reactContext ?: throw Exception("No react context")
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         
         networkCallback?.let {
             try { cm.unregisterNetworkCallback(it) } catch (e: Exception) {}
         }
         networkCallback = null
+        true
     }
   }
 }
