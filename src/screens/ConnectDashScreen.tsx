@@ -72,7 +72,16 @@ export default function ConnectDashScreen() {
         <FlatList
           data={networks}
           keyExtractor={(item) => item}
-          ListEmptyComponent={<Text style={{ color: '#fff', textAlign: 'center', marginTop: 40 }}>No RE networks found nearby. Ensure your dash WiFi is on.</Text>}
+          ListEmptyComponent={
+            <View style={{ marginTop: 20, padding: 20, backgroundColor: '#222', borderRadius: 12, borderWidth: 1, borderColor: '#333' }}>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>No Dash Found</Text>
+              <Text style={{ color: '#ccc', marginBottom: 8, fontSize: 15 }}>1. Turn on your motorcycle's ignition.</Text>
+              <Text style={{ color: '#ccc', marginBottom: 8, fontSize: 15 }}>2. Use the dash joystick to open the Menu.</Text>
+              <Text style={{ color: '#ccc', marginBottom: 8, fontSize: 15 }}>3. Navigate to Settings {'>'} Wi-Fi.</Text>
+              <Text style={{ color: '#ccc', marginBottom: 8, fontSize: 15 }}>4. Ensure Wi-Fi is set to Enabled.</Text>
+              <Text style={{ color: '#ff4500', marginTop: 10, fontWeight: 'bold', fontSize: 15 }}>Then press "Scan Again" below.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() => handleConnect(item)}
