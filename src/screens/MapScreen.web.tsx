@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View as RNView, Text as RNText, StyleSheet as RNStyleSheet, Dimensions } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { getCurrentPosition } from '../services/locationService';
@@ -40,7 +41,7 @@ export default function MapScreenWeb() {
         )}
         
         <RNView style={styles.marker}>
-          <RNText style={styles.markerText}>🏍️</RNText>
+          <MaterialCommunityIcons name={"motorcycle" as any} size={32} color="#fff" />
         </RNView>
 
         <RNView style={styles.coordsPanel}>

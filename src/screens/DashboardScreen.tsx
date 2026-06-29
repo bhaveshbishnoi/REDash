@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ImageBackground, TouchableOpacity, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Location from 'expo-location';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
-import { getSpeedEmoji } from '../utils/calculations';
+import { getSpeedIcon } from '../utils/calculations';
 import { startTrip, endTrip, recordTripSegment } from '../services/tripService';
 import { setBikeDisconnected } from '../store/bikeSlice';
 import { disconnectFromTripper } from '../services/wifiService';
@@ -106,21 +107,33 @@ export default function DashboardScreen() {
         <Text style={styles.speedLabel}>km/h</Text>
 
         {/* Speed Emoji */}
-        <Text style={styles.emojiText}>
-          {getSpeedEmoji(currentSpeed)}
-        </Text>
+        <MaterialCommunityIcons 
+          name={getSpeedIcon(currentSpeed) as any} 
+          size={70} 
+          color="#ff4500" 
+          style={{ marginBottom: 20 }} 
+        />
 
         {/* Stats */}
         <View style={styles.statsContainer}>
-          <Text style={styles.statText}>
-            Max Speed: {Math.round(maxSpeed)} km/h
-          </Text>
-          <Text style={styles.statText}>
-            Terrain: {currentSpeed > 50 ? '🛣️ Highway' : '🏙️ City'}
-          </Text>
-          <Text style={styles.statText}>
-            Time: {isDay ? '☀️ Day' : '🌙 Night'}
-          </Text>
+          <View style={styles.statRow}>
+            <MaterialCommunityIcons name="speedometer" size={20} color="#fff" style={styles.statIcon} />
+            <Text style={styles.statText}>
+              Max Speed: {Math.round(maxSpeed)} km/h
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <MaterialCommunityIcons name={currentSpeed > 50 ? 'highway' : 'city'} size={20} color="#fff" style={styles.statIcon} />
+            <Text style={styles.statText}>
+              Terrain: {currentSpeed > 50 ? 'Highway' : 'City'}
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <MaterialCommunityIcons name={isDay ? 'weather-sunny' : 'weather-night'} size={20} color="#fff" style={styles.statIcon} />
+            <Text style={styles.statText}>
+              Time: {isDay ? 'Day' : 'Night'}
+            </Text>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -203,10 +216,17 @@ const styles = StyleSheet.create({
     gap: 10,
     alignItems: 'center'
   },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  statIcon: {
+    marginRight: 8,
+  },
   statText: {
     color: '#fff',
     fontSize: 16,
-    textAlign: 'center'
   },
   buttonContainer: {
     flexDirection: 'row',

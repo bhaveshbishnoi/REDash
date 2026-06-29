@@ -1,23 +1,27 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size, focused }) => {
-          const icons: Record<string, string> = {
-            index: '🏍️',
-            map: '🗺️',
-            history: '📜',
-            stats: '📊',
-            settings: '⚙️'
+          const icons: Record<string, any> = {
+            index: 'motorcycle',
+            map: 'map',
+            history: 'history',
+            stats: 'chart-bar',
+            settings: 'cog'
           };
           return (
-            <Text style={[styles.icon, { fontSize: focused ? size + 4 : size }]}>
-              {icons[route.name] || '📍'}
-            </Text>
+            <MaterialCommunityIcons 
+                name={icons[route.name] || 'map-marker'} 
+                size={focused ? size + 4 : size} 
+                color={color} 
+                style={styles.icon}
+            />
           );
         },
         tabBarActiveTintColor: '#FF5722',
@@ -25,12 +29,13 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: '#121212',
           borderTopColor: '#222222',
-          paddingBottom: 5,
-          height: 60,
+          paddingBottom: Platform.OS === 'ios' ? 20 : 5,
+          height: Platform.OS === 'ios' ? 80 : 60,
         },
         headerStyle: {
           backgroundColor: '#121212',
           shadowColor: 'transparent',
+          elevation: 0,
         },
         headerTintColor: '#ffffff',
         headerTitleStyle: {

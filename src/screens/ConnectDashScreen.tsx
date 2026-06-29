@@ -1,36 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { setBikeConnected, setK1gConnected } from '../store/bikeSlice';
-import { scanAvailableNetworks, connectToTripper } from '../services/wifiService';
+import { connectToTripper } from '../services/wifiService';
 import { k1gProtocol } from '../services/k1gProtocol';
 
 export default function ConnectDashScreen() {
   const dispatch = useDispatch();
-  const [networks, setNetworks] = useState<string[]>([]);
-  const [scanning, setScanning] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [selectedSSID, setSelectedSSID] = useState<string | null>(null);
 
-  const scanNetworks = async () => {
-    setScanning(true);
-    const found = await scanAvailableNetworks();
-    setNetworks(found);
-    setScanning(false);
-  };
-
-  useEffect(() => {
-    scanNetworks();
-  }, []);
-
-  const handleConnect = async (ssid: string) => {
+  const handleConnect = async () => {
     setConnecting(true);
-    setSelectedSSID(ssid);
 
     try {
-      // Step 1: Connect to WiFi
-      const wifiConnected = await connectToTripper(ssid);
-      if (!wifiConnected) {
+      // Step 1: Connect to WiFi via Native Android Module
+      const ssid = await connectToTripper();
+      if (!ssid) {
         Alert.alert('Connection Failed', 'Could not connect to the dash WiFi network.');
         setConnecting(false);
         return;
@@ -39,8 +24,6 @@ export default function ConnectDashScreen() {
       // Step 2: Initialize K1G protocol
       const k1gConnected = await k1gProtocol.initializeConnection();
       
-      // We will proceed to dashboard even if K1G fails for now, so we can track rides offline,
-      // but we store the k1g state in Redux.
       dispatch(setK1gConnected(k1gConnected));
       dispatch(setBikeConnected({ ssid }));
       
@@ -58,78 +41,52 @@ export default function ConnectDashScreen() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: '#1A1A1A', paddingTop: 60 }}>
-      <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 20 }}>
-        Tripper Dash Connect
+    <View style={{ flex: 1, padding: 20, backgroundColor: '#1A1A1A', paddingTop: 60, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 15, textAlign: 'center' }}>
+        Tripper Dash
       </Text>
-      <Text style={{ fontSize: 16, color: '#ccc', marginBottom: 30 }}>
-        Please select your Royal Enfield Guerrilla 450, Himalayan, or Bear 650 Tripper network.
+      <Text style={{ fontSize: 16, color: '#ccc', marginBottom: 40, textAlign: 'center', paddingHorizontal: 10 }}>
+        Ensure your motorcycle's ignition is on and Wi-Fi is enabled in the Dash settings.
       </Text>
 
-      {scanning ? (
-        <ActivityIndicator size="large" color="#ff4500" style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
-          data={networks}
-          keyExtractor={(item) => item}
-          ListEmptyComponent={<Text style={{ color: '#fff', textAlign: 'center', marginTop: 40 }}>No RE networks found nearby. Ensure your dash WiFi is on.</Text>}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => handleConnect(item)}
-              disabled={connecting && selectedSSID !== item}
-              style={{
-                padding: 20,
-                marginVertical: 8,
-                backgroundColor: connecting && selectedSSID === item ? '#333' : '#2A2A2A',
-                borderRadius: 12,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: connecting && selectedSSID === item ? '#ff4500' : '#444'
-              }}
-            >
-              <View>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#fff' }}>{item}</Text>
-                <Text style={{ fontSize: 14, color: '#aaa', marginTop: 4 }}>Royal Enfield Dash</Text>
-              </View>
-              {connecting && selectedSSID === item ? (
-                <ActivityIndicator color="#ff4500" />
-              ) : (
-                <Text style={{ fontSize: 24, color: '#ff4500' }}>→</Text>
-              )}
-            </TouchableOpacity>
-          )}
-        />
+      {Platform.OS === 'ios' && (
+        <Text style={{ color: '#ff4500', textAlign: 'center', marginBottom: 20 }}>
+          iOS direct connection is in development. Please use Offline Mode.
+        </Text>
       )}
 
       <TouchableOpacity
-        onPress={scanNetworks}
-        disabled={scanning || connecting}
+        onPress={handleConnect}
+        disabled={connecting || Platform.OS === 'ios'}
         style={{ 
-            marginTop: 20, 
-            paddingVertical: 16, 
-            backgroundColor: (scanning || connecting) ? '#555' : '#ff4500', 
-            borderRadius: 12,
-            alignItems: 'center'
+            paddingVertical: 18, 
+            backgroundColor: (connecting || Platform.OS === 'ios') ? '#555' : '#ff4500', 
+            borderRadius: 14,
+            alignItems: 'center',
+            marginBottom: 20,
+            shadowColor: '#ff4500',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 10,
+            elevation: 8,
         }}
       >
-        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-          {scanning ? 'Scanning...' : 'Scan Again'}
-        </Text>
+        {connecting ? (
+            <ActivityIndicator color="#fff" />
+        ) : (
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>
+              Connect to Dash
+            </Text>
+        )}
       </TouchableOpacity>
       
       <TouchableOpacity
-        onPress={() => {
-            // Offline fallback
-            dispatch(setBikeConnected({ ssid: 'OFFLINE_MODE' }));
-        }}
-        disabled={scanning || connecting}
+        onPress={() => dispatch(setBikeConnected({ ssid: 'OFFLINE_MODE' }))}
+        disabled={connecting}
         style={{ 
-            marginTop: 15, 
             paddingVertical: 16, 
             backgroundColor: 'transparent', 
-            borderRadius: 12,
+            borderRadius: 14,
             borderWidth: 1,
             borderColor: '#666',
             alignItems: 'center'

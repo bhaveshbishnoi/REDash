@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, Text } from 'react-native';
+import { View, StyleSheet, Dimensions, Text, Platform } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
@@ -36,33 +36,42 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        region={currentRegion}
-        customMapStyle={darkMapStyle}
-        showsUserLocation
-      >
-        {trip.coordinates.length > 0 && (
-          <>
-            <Polyline
-              coordinates={trip.coordinates}
-              strokeColor="#FF5722"
-              strokeWidth={4}
-            />
-            <Marker
-              coordinate={trip.coordinates[0]}
-              title="Start Point"
-              pinColor="#00E676"
-            />
-            <Marker
-              coordinate={trip.coordinates[trip.coordinates.length - 1]}
-              title="Current Position"
-              pinColor="#FF3D00"
-            />
-          </>
-        )}
-      </MapView>
+      {Platform.OS === 'android' && !process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ? (
+        <View style={[styles.map, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#212121' }]}>
+           <Text style={{color: '#fff', textAlign: 'center', padding: 20}}>
+             Map unavailable.{'\n'}
+             Please configure EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in .env.local and rebuild the app.
+           </Text>
+        </View>
+      ) : (
+        <MapView
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          region={currentRegion}
+          customMapStyle={darkMapStyle}
+          showsUserLocation
+        >
+          {trip.coordinates.length > 0 && (
+            <>
+              <Polyline
+                coordinates={trip.coordinates}
+                strokeColor="#FF5722"
+                strokeWidth={4}
+              />
+              <Marker
+                coordinate={trip.coordinates[0]}
+                title="Start Point"
+                pinColor="#00E676"
+              />
+              <Marker
+                coordinate={trip.coordinates[trip.coordinates.length - 1]}
+                title="Current Position"
+                pinColor="#FF3D00"
+              />
+            </>
+          )}
+        </MapView>
+      )}
 
       {trip.active && (
         <View style={styles.overlayPanel}>

@@ -1,0 +1,7 @@
+expo.modules.mymodule.dash-wifi-pngs-0 /Users/bhavesh/Developer/redash/modules/dash-wifi/android/build/generated/res/pngs/release
+expo.modules.mymodule.dash-wifi-resValues-1 /Users/bhavesh/Developer/redash/modules/dash-wifi/android/build/generated/res/resValues/release
+expo.modules.mymodule.dash-wifi-mergeReleaseResources-2 /Users/bhavesh/Developer/redash/modules/dash-wifi/android/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+expo.modules.mymodule.dash-wifi-mergeReleaseResources-3 /Users/bhavesh/Developer/redash/modules/dash-wifi/android/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+expo.modules.mymodule.dash-wifi-release-4 /Users/bhavesh/Developer/redash/modules/dash-wifi/android/build/intermediates/merged_res/release/mergeReleaseResources
+expo.modules.mymodule.dash-wifi-main-5 /Users/bhavesh/Developer/redash/modules/dash-wifi/android/src/main/res
+expo.modules.mymodule.dash-wifi-release-6 /Users/bhavesh/Developer/redash/modules/dash-wifi/android/src/release/res

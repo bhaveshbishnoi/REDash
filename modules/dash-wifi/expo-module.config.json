@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["DashWifiModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.mymodule.DashWifiModule"]
+  }
+}

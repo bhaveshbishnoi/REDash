@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function SpeedDistributionChart() {
   const buckets = [
-    { label: '0-20', percentage: 15, emoji: '🐢' },
-    { label: '21-40', percentage: 25, emoji: '🚗' },
-    { label: '41-60', percentage: 35, emoji: '🏍️' },
-    { label: '61-80', percentage: 15, emoji: '🚀' },
-    { label: '81+', percentage: 10, emoji: '⚡' },
+    { label: '0-20', percentage: 15, icon: 'turtle' },
+    { label: '21-40', percentage: 25, icon: 'car' },
+    { label: '41-60', percentage: 35, icon: 'motorcycle' },
+    { label: '61-80', percentage: 15, icon: 'rocket' },
+    { label: '81+', percentage: 10, icon: 'lightning-bolt' },
   ];
 
   return (
@@ -16,7 +17,7 @@ export default function SpeedDistributionChart() {
       <View style={styles.chartBody}>
         {buckets.map(b => (
           <View key={b.label} style={styles.row}>
-            <Text style={styles.emoji}>{b.emoji}</Text>
+            <MaterialCommunityIcons name={b.icon as any} size={16} color="#fff" style={styles.emoji} />
             <Text style={styles.label}>{b.label} km/h</Text>
             <View style={styles.track}>
               <View style={[styles.fill, { width: `${b.percentage}%` }]} />
