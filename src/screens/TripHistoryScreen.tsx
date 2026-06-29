@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getAllTrips } from '../services/tripService';
 import { useIsFocused } from '@react-navigation/native';
 
@@ -61,13 +62,15 @@ export default function TripHistoryScreen() {
                     {new Date(item.startTime).toLocaleDateString()} at {new Date(item.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </Text>
                   <Text style={styles.statsText}>
-                    {(item.distance || 0).toFixed(1)} km • {formatDuration(item.duration)} • {item.timeOfDay === 'day' ? '☀️ Day' : '🌙 Night'}
+                    {(item.distance || 0).toFixed(1)} km • {formatDuration(item.duration)} • {item.timeOfDay === 'day' ? 'Day' : 'Night'}
                   </Text>
                 </View>
                 <View style={styles.rightCol}>
-                  <Text style={styles.emojiText}>
-                    {item.terrainType === 'highway' ? '🛣️' : '🏙️'}
-                  </Text>
+                  <MaterialCommunityIcons 
+                     name={item.terrainType === 'highway' ? 'highway' : 'city'} 
+                     size={24} 
+                     color={item.terrainType === 'highway' ? '#ff4500' : '#4ecdc4'} 
+                  />
                   <Text style={styles.avgSpeedText}>
                     {Math.round(item.avgSpeed || 0)} km/h avg
                   </Text>
