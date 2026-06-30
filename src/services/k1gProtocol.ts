@@ -19,7 +19,9 @@ import { Platform } from 'react-native';
 
 const DASH_IP = '192.168.1.1';
 const DASH_CONTROL_PORT = 2002;
-const CONNECTION_TIMEOUT_MS = 8000;
+const CONNECTION_TIMEOUT_MS = 15000;
+const PROBE_RETRY_COUNT = 3;
+const PROBE_RETRY_DELAY_MS = 1200;
 
 export type ConnectionStatus =
   | 'idle'
@@ -86,10 +88,21 @@ class K1GProtocol {
         finish(false);
       }, CONNECTION_TIMEOUT_MS);
 
-      // Attempt a UDP "ping" to port 2002 via a fetch to a known REST-like
-      // endpoint that some Tripper Dash firmwares expose, or fall back to
-      // a raw TCP probe that confirms port responsiveness.
-      this.probeDashReachability()
+      // Retry probing up to PROBE_RETRY_COUNT times — the dash can be slow
+      // to respond after the network stack settles from bindProcessToNetwork.
+      const probeWithRetry = async (): Promise<boolean> => {
+        for (let attempt = 1; attempt <= PROBE_RETRY_COUNT; attempt++) {
+          console.log(`[K1G] Probe attempt ${attempt}/${PROBE_RETRY_COUNT}…`);
+          const reachable = await this.probeDashReachability();
+          if (reachable) return true;
+          if (attempt < PROBE_RETRY_COUNT) {
+            await new Promise<void>((r) => setTimeout(r, PROBE_RETRY_DELAY_MS));
+          }
+        }
+        return false;
+      };
+
+      probeWithRetry()
         .then((reachable) => {
           clearTimeout(timer);
           if (reachable) {
@@ -115,7 +128,7 @@ class K1GProtocol {
     // Try HTTP probe first (some firmware versions expose a status endpoint)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(`http://${DASH_IP}/`, {
         signal: controller.signal,
         method: 'GET',
@@ -137,7 +150,7 @@ class K1GProtocol {
       return await new Promise<boolean>((resolve) => {
         let done = false;
         const socket = TcpSocket.createConnection(
-          { port: DASH_CONTROL_PORT, host: DASH_IP, timeout: 3000 },
+          { port: DASH_CONTROL_PORT, host: DASH_IP, timeout: 5000 },
           () => {
             // Connected — dash is alive
             if (!done) { done = true; socket.destroy(); resolve(true); }
@@ -158,7 +171,7 @@ class K1GProtocol {
         });
         setTimeout(() => {
           if (!done) { done = true; try { socket.destroy(); } catch (_) {}; resolve(false); }
-        }, 3500);
+        }, 5500);
       });
     } catch (err) {
       console.warn('[K1G] TCP probe failed:', err);
