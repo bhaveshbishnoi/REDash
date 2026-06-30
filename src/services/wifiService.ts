@@ -27,6 +27,74 @@ const getDashWifi = () => {
   return DashWifi;
 };
 
+/** Small helper: wait for the WiFi stack to settle before probing the dash. */
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Scan for available Tripper Dash networks (RE_* SSIDs).
+ * Returns an empty array if the module is unavailable or on iOS.
+ */
+export const scanTripperNetworks = async (): Promise<string[]> => {
+  if (Platform.OS !== 'android') return [];
+
+  const module = getDashWifi();
+  if (!module) {
+    console.warn('[WiFi] DashWifi native module unavailable for scanning');
+    return [];
+  }
+
+  try {
+    console.log('[WiFi] Scanning for RE_* networks…');
+    const networks: string[] = await module.scanNetworks('RE_');
+    console.log(`[WiFi] Found networks: ${JSON.stringify(networks)}`);
+    return networks;
+  } catch (err) {
+    console.warn('[WiFi] Scan error:', err);
+    return [];
+  }
+};
+
+/**
+ * Connect to a specific SSID (chosen manually by the user).
+ * Returns the connected SSID or null on failure.
+ */
+export const connectToSsidDirectly = async (ssid: string): Promise<string | null> => {
+  if (Platform.OS !== 'android') {
+    console.warn('[WiFi] iOS direct WiFi connection not supported');
+    return null;
+  }
+
+  const module = getDashWifi();
+  if (!module) {
+    throw new Error('DashWifi native module unavailable. Please rebuild the app.');
+  }
+
+  try {
+    console.log(`[WiFi] Connecting to specific SSID: ${ssid}`);
+    const connected: string = await module.connectToSsid(ssid);
+    console.log(`[WiFi] Connected to: ${connected}`);
+
+    // Let the network stack fully settle before any TCP/HTTP probes
+    await sleep(1500);
+    return connected;
+  } catch (error: any) {
+    const msg: string = error?.message || String(error);
+    if (msg.includes('UNAVAILABLE') || msg.includes('cancelled')) {
+      console.warn('[WiFi] User cancelled or network unavailable');
+      return null;
+    }
+    if (msg.includes('UNSUPPORTED')) {
+      throw new Error('Your device requires Android 10 or newer to connect directly to the Tripper Dash WiFi.');
+    }
+    console.error('[WiFi] Connect-to-SSID error:', msg);
+    return null;
+  }
+};
+
+/**
+ * Connect to any RE_* network via the system picker (legacy).
+ * Returns the connected SSID or null on failure.
+ */
 export const connectToTripper = async (): Promise<string | null> => {
   if (Platform.OS !== 'android') {
     console.warn('[WiFi] iOS direct WiFi connection not supported');
@@ -40,9 +108,11 @@ export const connectToTripper = async (): Promise<string | null> => {
 
   try {
     console.log('[WiFi] Requesting connection to RE_* network via system dialog…');
-    // connectToPrefix shows Android's native WiFi picker filtered to RE_ SSIDs
     const ssid: string = await module.connectToPrefix('RE_');
     console.log(`[WiFi] Connected to: ${ssid}`);
+
+    // Let the network stack fully settle before any TCP/HTTP probes
+    await sleep(1500);
     return ssid;
   } catch (error: any) {
     const msg: string = error?.message || String(error);
@@ -74,12 +144,12 @@ export const disconnectFromTripper = async (): Promise<void> => {
 
 /**
  * Quick check: can we reach the dash gateway after WiFi connection?
- * Returns true if 192.168.1.1 responds to an HTTP request within 3s.
+ * Returns true if 192.168.1.1 responds to an HTTP request within 5s.
  */
 export const isDashReachable = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 3000);
+    const id = setTimeout(() => controller.abort(), 5000);
     const res = await fetch('http://192.168.1.1/', { signal: controller.signal });
     clearTimeout(id);
     return res.status < 500;
