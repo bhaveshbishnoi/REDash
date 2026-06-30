@@ -53,27 +53,74 @@ class DashWifiModule : Module() {
       }
       try {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork
-        val caps = cm.getNetworkCapabilities(network)
-        val info = caps?.transportInfo as? WifiInfo
+        var resolvedSsid: String? = null
 
-        @Suppress("DEPRECATION")
-        val ssid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-          info?.ssid?.trim('"')
-        } else {
-          val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-          @Suppress("DEPRECATION")
-          wm.connectionInfo?.ssid?.trim('"')
+        // 1. Scan all networks to find TRANSPORT_WIFI network specifically
+        for (network in cm.allNetworks) {
+          val caps = cm.getNetworkCapabilities(network)
+          if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+            val info = caps.transportInfo as? WifiInfo
+            val s = info?.ssid?.trim('"')
+            if (s != null && s != "<unknown ssid>" && s.isNotBlank()) {
+              resolvedSsid = s
+              break
+            }
+          }
         }
 
-        // Android returns "<unknown ssid>" when location permission is missing
-        if (ssid == null || ssid == "<unknown ssid>" || ssid.isBlank()) {
+        // 2. Fallback to activeNetwork
+        if (resolvedSsid == null) {
+          val network = cm.activeNetwork
+          val caps = cm.getNetworkCapabilities(network)
+          val info = caps?.transportInfo as? WifiInfo
+          val s = info?.ssid?.trim('"')
+          if (s != null && s != "<unknown ssid>" && s.isNotBlank()) {
+            resolvedSsid = s
+          }
+        }
+
+        // 3. Fallback to WifiManager
+        if (resolvedSsid == null) {
+          val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+          @Suppress("DEPRECATION")
+          val info = wm.connectionInfo
+          @Suppress("DEPRECATION")
+          val s = info?.ssid?.trim('"')
+          if (s != null && s != "<unknown ssid>" && s.isNotBlank()) {
+            resolvedSsid = s
+          }
+        }
+
+        if (resolvedSsid == null || resolvedSsid == "<unknown ssid>" || resolvedSsid.isBlank()) {
           promise.resolve(null)
         } else {
-          promise.resolve(ssid)
+          promise.resolve(resolvedSsid)
         }
       } catch (e: Exception) {
         promise.resolve(null)
+      }
+    }
+
+    // ─── Bind process to active WiFi network (needed for manual connection) ─
+    AsyncFunction("bindToActiveWifi") { promise: Promise ->
+      val context = appContext.reactContext ?: run {
+        promise.resolve(false); return@AsyncFunction
+      }
+      try {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        var bound = false
+        for (network in cm.allNetworks) {
+          val caps = cm.getNetworkCapabilities(network)
+          if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+            cm.bindProcessToNetwork(network)
+            boundNetwork = network
+            bound = true
+            break
+          }
+        }
+        promise.resolve(bound)
+      } catch (e: Exception) {
+        promise.resolve(false)
       }
     }
 
