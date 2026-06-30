@@ -1,31 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getAllTrips } from '../services/tripService';
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 
 export default function TripHistoryScreen() {
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const isFocused = useIsFocused();
 
-  useEffect(() => {
-    const loadTrips = async () => {
-      setLoading(true);
-      try {
-        const tripsData = await getAllTrips();
-        setTrips(tripsData);
-      } catch (e) {
-        console.error("Error loading trips", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isFocused) {
-        loadTrips();
-    }
-  }, [isFocused]);
+  useFocusEffect(
+    useCallback(() => {
+      const loadTrips = async () => {
+        setLoading(true);
+        try {
+          const tripsData = await getAllTrips();
+          setTrips(tripsData as any[]);
+        } catch (e) {
+          console.error('Error loading trips', e);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadTrips();
+    }, [])
+  );
 
   const formatDuration = (minutes: number) => {
     if (!minutes) return '0m';
@@ -48,7 +46,13 @@ export default function TripHistoryScreen() {
           data={trips}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={{ paddingBottom: 20 }}
-          ListEmptyComponent={<Text style={styles.emptyText}>No rides recorded yet. Start a ride from the dashboard!</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="road-variant" size={64} color="#333" />
+              <Text style={styles.emptyText}>No rides recorded yet.</Text>
+              <Text style={styles.emptySubText}>Start a ride from the dashboard after connecting your bike.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[
@@ -97,11 +101,24 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         color: '#fff'
     },
+    emptyContainer: {
+        alignItems: 'center',
+        marginTop: 60,
+        paddingHorizontal: 30,
+    },
     emptyText: {
         color: '#aaa',
         textAlign: 'center',
-        marginTop: 40,
-        fontSize: 16
+        marginTop: 16,
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    emptySubText: {
+        color: '#666',
+        textAlign: 'center',
+        marginTop: 8,
+        fontSize: 14,
+        lineHeight: 20,
     },
     tripCard: {
         padding: 18,
@@ -136,9 +153,6 @@ const styles = StyleSheet.create({
     rightCol: { 
         alignItems: 'flex-end',
         paddingLeft: 10
-    },
-    emojiText: { 
-        fontSize: 24 
     },
     avgSpeedText: { 
         fontSize: 12, 
