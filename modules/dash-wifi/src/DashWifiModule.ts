@@ -9,6 +9,8 @@ declare class DashWifiModule extends NativeModule<{}> {
   scanNetworks(prefix: string): Promise<string[]>;
   /** Get the SSID of the currently connected WiFi network, or null. */
   getCurrentSsid(): Promise<string | null>;
+  /** Bind the process to the current active WiFi network so traffic routes properly. */
+  bindToActiveWifi(): Promise<boolean>;
   /** Open Android WiFi Settings screen (for manual connection fallback). */
   openWifiSettings(): Promise<boolean>;
   /** Disconnect and restore normal network routing. */

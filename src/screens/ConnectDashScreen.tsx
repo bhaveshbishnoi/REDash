@@ -22,6 +22,8 @@ import {
   connectToSsidDirectly,
   scanTripperNetworks,
   openWifiSettingsAndPoll,
+  getCurrentTripperSsid,
+  bindCurrentWifi,
 } from '../services/wifiService';
 import { k1gProtocol } from '../services/k1gProtocol';
 import { launchCameraAsync, MediaTypeOptions, requestCameraPermissionsAsync } from 'expo-image-picker';
@@ -57,6 +59,18 @@ export default function ConnectDashScreen() {
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    
+    // Check if already connected manually on load
+    const checkCurrentWifi = async () => {
+      try {
+        const ssid = await getCurrentTripperSsid();
+        if (ssid) {
+          console.log(`[WiFi] Initial load detected manual connection to: ${ssid}`);
+          setConnectedSsid(ssid);
+        }
+      } catch {}
+    };
+    checkCurrentWifi();
   }, []);
 
   useEffect(() => {
@@ -165,6 +179,17 @@ export default function ConnectDashScreen() {
     setErrorMsg('');
     setConnectedSsid('');
     try {
+      // Check if already connected manually to an RE_ network!
+      const currentSsid = await getCurrentTripperSsid();
+      if (currentSsid) {
+        console.log(`[WiFi] Already connected to: ${currentSsid}. Direct binding.`);
+        const bound = await bindCurrentWifi();
+        if (bound) {
+          await runDashProbe(currentSsid);
+          return;
+        }
+      }
+
       const ssid = await connectToTripper();
       if (!ssid) {
         setStep('error');

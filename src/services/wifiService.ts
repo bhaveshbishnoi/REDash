@@ -54,6 +54,26 @@ export const getCurrentTripperSsid = async (): Promise<string | null> => {
   }
 };
 
+// ─── Bind process to active WiFi network ──────────────────────────────────────
+
+export const bindCurrentWifi = async (): Promise<boolean> => {
+  if (Platform.OS !== 'android') return false;
+  const module = getDashWifi();
+  if (!module) return false;
+  try {
+    const ssid = await getCurrentTripperSsid();
+    if (ssid) {
+      console.log(`[WiFi] Found active RE_ connection: ${ssid}. Binding process...`);
+      const bound = await module.bindToActiveWifi();
+      return bound;
+    }
+    return false;
+  } catch (e) {
+    console.error('[WiFi] Bind error:', e);
+    return false;
+  }
+};
+
 // ─── Poll for manual connection via WiFi Settings ────────────────────────────
 
 /**
@@ -81,10 +101,12 @@ export const openWifiSettingsAndPoll = async (
     await sleep(1500);
     const ssid = await getCurrentTripperSsid();
     if (ssid) {
-      // Bind the already-connected network to our process
       console.log(`[WiFi] Detected manual connection to: ${ssid}`);
+      // Crucial: Bind process traffic to this WiFi network now!
+      const bound = await module.bindToActiveWifi();
+      console.log(`[WiFi] Bound process to network: ${bound}`);
       // Give network stack a moment to stabilise
-      await sleep(800);
+      await sleep(1000);
       onConnected(ssid);
       return;
     }
@@ -117,7 +139,7 @@ export const connectToSsidDirectly = async (ssid: string): Promise<string | null
 export const connectToTripper = async (): Promise<string | null> => {
   if (Platform.OS !== 'android') return null;
   const module = getDashWifi();
-  if (!module) throw new Error('DashWifi native module unavailable. Please rebuild the app.');
+  if (!module) throw new Error('DashWifi module unavailable. Please rebuild the app.');
 
   try {
     console.log('[WiFi] Requesting connection to RE_* network via system dialog…');
