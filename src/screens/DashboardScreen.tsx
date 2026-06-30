@@ -94,10 +94,20 @@ export default function DashboardScreen() {
     >
       <View style={styles.overlay}>
         <View style={styles.header}>
+          <MaterialCommunityIcons
+            name={ssid === 'OFFLINE_MODE' ? 'wifi-off' : 'wifi'}
+            size={14}
+            color={ssid === 'OFFLINE_MODE' ? '#888' : '#4CAF50'}
+          />
           <Text style={styles.networkText}>
-            {ssid === 'OFFLINE_MODE' ? 'Offline Mode' : `Connected to: ${ssid}`}
+            {ssid === 'OFFLINE_MODE' ? 'Offline Mode' : ssid}
           </Text>
-          {k1gConnected && <Text style={styles.k1gBadge}>Dash Synced</Text>}
+          {k1gConnected && (
+            <View style={styles.k1gBadge}>
+              <MaterialCommunityIcons name="check-circle" size={10} color="#000" />
+              <Text style={styles.k1gBadgeText}>Dash Synced</Text>
+            </View>
+          )}
         </View>
 
         {/* Speed Display */}
@@ -106,7 +116,7 @@ export default function DashboardScreen() {
         </Text>
         <Text style={styles.speedLabel}>km/h</Text>
 
-        {/* Speed Emoji */}
+        {/* Speed Icon */}
         <MaterialCommunityIcons 
           name={getSpeedIcon(currentSpeed) as any} 
           size={70} 
@@ -187,14 +197,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   k1gBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: '#00ff00',
-    color: '#000',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 12,
+    overflow: 'hidden',
+  },
+  k1gBadgeText: {
+    color: '#000',
     fontSize: 10,
     fontWeight: 'bold',
-    overflow: 'hidden'
   },
   speedText: {
     fontSize: 84,
@@ -207,7 +222,7 @@ const styles = StyleSheet.create({
     color: '#ccc',
     marginBottom: 20
   },
-  emojiText: {
+  iconText: {
     fontSize: 70,
     marginBottom: 20
   },
