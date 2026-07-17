@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, Text, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, Dimensions, Text, Platform, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSelector } from 'react-redux';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
 import { getCurrentPosition } from '../services/locationService';
 
 export default function MapScreen() {
   const trip = useSelector((state: RootState) => state.trip);
-  const [currentRegion, setCurrentRegion] = useState({
+  const mapRef = useRef<MapView>(null);
+  const [isFollowing, setIsFollowing] = useState(true);
+  const [initialRegion, setInitialRegion] = useState({
     latitude: 28.6139,
     longitude: 77.2090,
     latitudeDelta: 0.015,
@@ -15,24 +18,63 @@ export default function MapScreen() {
   });
 
   useEffect(() => {
-    if (trip.active && trip.coordinates.length > 0) {
+    // Get initial location once on mount
+    if (trip.coordinates.length > 0) {
       const last = trip.coordinates[trip.coordinates.length - 1];
-      setCurrentRegion(prev => ({
-        ...prev,
+      setInitialRegion({
         latitude: last.latitude,
         longitude: last.longitude,
-      }));
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
+      });
     } else {
-      // Get current location on screen mount
       getCurrentPosition().then(pos => {
-        setCurrentRegion(prev => ({
-          ...prev,
+        setInitialRegion({
           latitude: pos.latitude,
           longitude: pos.longitude,
-        }));
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        });
       });
     }
-  }, [trip.active, trip.coordinates]);
+  }, []);
+
+  useEffect(() => {
+    if (isFollowing && trip.active && trip.coordinates.length > 0 && mapRef.current) {
+      const last = trip.coordinates[trip.coordinates.length - 1];
+      mapRef.current.animateToRegion(
+        {
+          latitude: last.latitude,
+          longitude: last.longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        },
+        500
+      );
+    }
+  }, [trip.coordinates, isFollowing, trip.active]);
+
+  const handleRecenter = () => {
+    setIsFollowing(true);
+    if (trip.coordinates.length > 0 && mapRef.current) {
+      const last = trip.coordinates[trip.coordinates.length - 1];
+      mapRef.current.animateToRegion({
+        latitude: last.latitude,
+        longitude: last.longitude,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
+      }, 500);
+    } else {
+      getCurrentPosition().then(pos => {
+        mapRef.current?.animateToRegion({
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        }, 500);
+      });
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -45,11 +87,13 @@ export default function MapScreen() {
         </View>
       ) : (
         <MapView
+          ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
-          region={currentRegion}
+          initialRegion={initialRegion}
           customMapStyle={darkMapStyle}
           showsUserLocation
+          onPanDrag={() => setIsFollowing(false)}
         >
           {trip.coordinates.length > 0 && (
             <>
@@ -72,6 +116,19 @@ export default function MapScreen() {
           )}
         </MapView>
       )}
+
+      {/* Recenter / Follow Toggle */}
+      <TouchableOpacity
+        style={[styles.recenterButton, isFollowing && styles.recenterButtonActive]}
+        onPress={handleRecenter}
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons
+          name={isFollowing ? 'crosshairs-gps' : 'crosshairs'}
+          size={24}
+          color={isFollowing ? '#FF5722' : '#FFFFFF'}
+        />
+      </TouchableOpacity>
 
       {trip.active && (
         <View style={styles.overlayPanel}>
@@ -127,5 +184,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
     fontWeight: 'bold',
+  },
+  recenterButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(20, 20, 20, 0.85)',
+    borderWidth: 1,
+    borderColor: '#333',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  recenterButtonActive: {
+    borderColor: '#FF5722',
+    backgroundColor: 'rgba(30, 20, 20, 0.95)',
   },
 });

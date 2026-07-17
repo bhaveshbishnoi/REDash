@@ -84,7 +84,8 @@ export const bindCurrentWifi = async (): Promise<boolean> => {
 export const openWifiSettingsAndPoll = async (
   onConnected: (ssid: string) => void,
   onTimeout: () => void,
-  timeoutMs = 60_000
+  timeoutMs = 60_000,
+  abortSignal?: { aborted: boolean }
 ): Promise<void> => {
   if (Platform.OS !== 'android') return;
   const module = getDashWifi();
@@ -98,20 +99,30 @@ export const openWifiSettingsAndPoll = async (
 
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    if (abortSignal?.aborted) {
+      console.log('[WiFi] Polling aborted by user or screen unmount');
+      return;
+    }
     await sleep(1500);
+    if (abortSignal?.aborted) return;
+
     const ssid = await getCurrentTripperSsid();
     if (ssid) {
       console.log(`[WiFi] Detected manual connection to: ${ssid}`);
       // Crucial: Bind process traffic to this WiFi network now!
       const bound = await module.bindToActiveWifi();
       console.log(`[WiFi] Bound process to network: ${bound}`);
+      if (abortSignal?.aborted) return;
       // Give network stack a moment to stabilise
       await sleep(1000);
+      if (abortSignal?.aborted) return;
       onConnected(ssid);
       return;
     }
   }
-  onTimeout();
+  if (!abortSignal?.aborted) {
+    onTimeout();
+  }
 };
 
 // ─── Connect via system dialog (WifiNetworkSpecifier) ────────────────────────

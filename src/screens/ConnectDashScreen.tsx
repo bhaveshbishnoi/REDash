@@ -56,21 +56,28 @@ export default function ConnectDashScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef({ aborted: false });
 
   useEffect(() => {
+    abortRef.current.aborted = false;
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     
     // Check if already connected manually on load
     const checkCurrentWifi = async () => {
       try {
         const ssid = await getCurrentTripperSsid();
-        if (ssid) {
+        if (ssid && !abortRef.current.aborted) {
           console.log(`[WiFi] Initial load detected manual connection to: ${ssid}`);
           setConnectedSsid(ssid);
         }
       } catch {}
     };
     checkCurrentWifi();
+
+    return () => {
+      abortRef.current.aborted = true;
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -154,13 +161,15 @@ export default function ConnectDashScreen() {
   // ─── Connection helpers ───────────────────────────────────────────────────
 
   const runDashProbe = async (ssid: string) => {
+    if (abortRef.current.aborted) return;
     setConnectedSsid(ssid);
     setStep('dash');
     const dashConnected = await k1gProtocol.initializeConnection();
+    if (abortRef.current.aborted) return;
     dispatch(setK1gConnected(dashConnected));
     dispatch(setBikeConnected({ ssid }));
     setStep('done');
-    if (!dashConnected) {
+    if (!dashConnected && !abortRef.current.aborted) {
       Alert.alert(
         'WiFi Connected ✓',
         'The Tripper Dash WiFi is active.\n\nThe control port (192.168.1.1:2002) did not respond — this is normal if the bike is not fully powered. GPS ride tracking will work normally.',
@@ -181,16 +190,17 @@ export default function ConnectDashScreen() {
     try {
       // Check if already connected manually to an RE_ network!
       const currentSsid = await getCurrentTripperSsid();
-      if (currentSsid) {
+      if (currentSsid && !abortRef.current.aborted) {
         console.log(`[WiFi] Already connected to: ${currentSsid}. Direct binding.`);
         const bound = await bindCurrentWifi();
-        if (bound) {
+        if (bound && !abortRef.current.aborted) {
           await runDashProbe(currentSsid);
           return;
         }
       }
 
       const ssid = await connectToTripper();
+      if (abortRef.current.aborted) return;
       if (!ssid) {
         setStep('error');
         setErrorMsg(
@@ -201,6 +211,7 @@ export default function ConnectDashScreen() {
       }
       await runDashProbe(ssid);
     } catch (error: any) {
+      if (abortRef.current.aborted) return;
       setStep('error');
       setErrorMsg(error?.message || 'An unexpected error occurred.');
     }
@@ -217,11 +228,11 @@ export default function ConnectDashScreen() {
     setWifiNetworks([]);
     try {
       const nets = await scanTripperNetworks();
-      setWifiNetworks(nets);
+      if (!abortRef.current.aborted) setWifiNetworks(nets);
     } catch {
-      setWifiNetworks([]);
+      if (!abortRef.current.aborted) setWifiNetworks([]);
     } finally {
-      setScanningWifi(false);
+      if (!abortRef.current.aborted) setScanningWifi(false);
     }
   };
 
@@ -233,8 +244,8 @@ export default function ConnectDashScreen() {
     setConnectedSsid('');
     try {
       const connected = await connectToSsidDirectly(ssid);
+      if (abortRef.current.aborted) return;
       if (!connected) {
-        // Fall through to manual settings approach
         setStep('error');
         setErrorMsg(
           `Android popup for "${ssid}" was dismissed or timed out.\n\nUse "Manual WiFi Connect" — opens your phone WiFi settings, tap ${ssid}, then come back.`
@@ -243,6 +254,7 @@ export default function ConnectDashScreen() {
       }
       await runDashProbe(connected);
     } catch (error: any) {
+      if (abortRef.current.aborted) return;
       setStep('error');
       setErrorMsg(error?.message || 'Connection failed. Try Manual WiFi Connect below.');
     }
@@ -256,18 +268,19 @@ export default function ConnectDashScreen() {
 
     openWifiSettingsAndPoll(
       async (ssid) => {
-        // Successfully detected manual connection
+        if (abortRef.current.aborted) return;
         await runDashProbe(ssid);
       },
       () => {
-        // Timeout after 60 seconds
+        if (abortRef.current.aborted) return;
         setStep('error');
         setErrorMsg(
           'Timed out waiting for WiFi connection.\n\n' +
           'In your phone WiFi settings, tap "RE_NN9M_XXXXXX" and wait for "Connected" to appear, then tap Try Again.'
         );
       },
-      60_000
+      60_000,
+      abortRef.current
     );
   };
 

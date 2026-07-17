@@ -86,40 +86,68 @@ export const startTrip = async () => {
   return tripId;
 };
 
-export const recordTripSegment = async (tripId: string, speed: number) => {
+export const recordTripSegment = async (
+  tripId: string,
+  speed: number,
+  coords?: { latitude: number; longitude: number; altitude?: number | null }
+) => {
   if (!db) return;
-  const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.High
-  });
+  try {
+    let lat = coords?.latitude;
+    let lng = coords?.longitude;
+    let alt = coords?.altitude || 0;
 
-  const segmentId = Math.random().toString(36).substr(2, 9);
+    if (lat === undefined || lng === undefined) {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      });
+      lat = location.coords.latitude;
+      lng = location.coords.longitude;
+      alt = location.coords.altitude || 0;
+    }
 
-  await db.runAsync(
-    'INSERT INTO trip_segments (id, tripId, latitude, longitude, speed, altitude, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [
-      segmentId,
-      tripId,
-      location.coords.latitude,
-      location.coords.longitude,
-      speed,
-      location.coords.altitude || 0,
-      Date.now()
-    ]
-  );
+    const segmentId = Math.random().toString(36).substr(2, 9);
+
+    await db.runAsync(
+      'INSERT INTO trip_segments (id, tripId, latitude, longitude, speed, altitude, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        segmentId,
+        tripId,
+        lat,
+        lng,
+        speed,
+        alt,
+        Date.now()
+      ]
+    );
+  } catch (err) {
+    console.warn('[TripService] Failed to record trip segment:', err);
+  }
 };
 
-export const endTrip = async (tripId: string) => {
+export const endTrip = async (tripId: string, coords?: { latitude: number; longitude: number }) => {
   if (!db) return;
-  const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.High
-  });
+  try {
+    let lat = coords?.latitude;
+    let lng = coords?.longitude;
 
-  await db.runAsync(
-    'UPDATE trips SET endTime=?, endLat=?, endLng=? WHERE id=?',
-    [Date.now(), location.coords.latitude, location.coords.longitude, tripId]
-  );
+    if (lat === undefined || lng === undefined) {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      });
+      lat = location.coords.latitude;
+      lng = location.coords.longitude;
+    }
 
-  await calculateTripStats(tripId);
+    await db.runAsync(
+      'UPDATE trips SET endTime=?, endLat=?, endLng=? WHERE id=?',
+      [Date.now(), lat, lng, tripId]
+    );
+
+    await calculateTripStats(tripId);
+  } catch (err) {
+    console.warn('[TripService] Error ending trip:', err);
+  }
 };
 
 const calculateTripStats = async (tripId: string) => {

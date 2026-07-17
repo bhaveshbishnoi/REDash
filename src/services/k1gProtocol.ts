@@ -149,29 +149,42 @@ class K1GProtocol {
       const TcpSocket = require('react-native-tcp-socket');
       return await new Promise<boolean>((resolve) => {
         let done = false;
-        const socket = TcpSocket.createConnection(
-          { port: DASH_CONTROL_PORT, host: DASH_IP, timeout: 5000 },
-          () => {
-            // Connected — dash is alive
-            if (!done) { done = true; socket.destroy(); resolve(true); }
-          }
-        );
-        socket.on('error', (err: any) => {
-          // ECONNREFUSED means port is closed but host responded (dash present)
-          if (!done) {
-            done = true;
+        let socket: any = null;
+
+        const cleanup = (result: boolean) => {
+          if (done) return;
+          done = true;
+          try {
+            if (socket) {
+              socket.removeAllListeners('error');
+              socket.removeAllListeners('timeout');
+              socket.destroy();
+            }
+          } catch (_) {}
+          resolve(result);
+        };
+
+        try {
+          socket = TcpSocket.createConnection(
+            { port: DASH_CONTROL_PORT, host: DASH_IP, timeout: 4500 },
+            () => {
+              cleanup(true);
+            }
+          );
+          socket.on('error', (err: any) => {
             const isRefused = err?.message?.includes('ECONNREFUSED') ||
                               err?.message?.includes('Connection refused');
-            socket.destroy();
-            resolve(isRefused); // still reachable if actively refused
-          }
-        });
-        socket.on('timeout', () => {
-          if (!done) { done = true; socket.destroy(); resolve(false); }
-        });
-        setTimeout(() => {
-          if (!done) { done = true; try { socket.destroy(); } catch (_) {}; resolve(false); }
-        }, 5500);
+            cleanup(isRefused);
+          });
+          socket.on('timeout', () => {
+            cleanup(false);
+          });
+          setTimeout(() => {
+            cleanup(false);
+          }, 5000);
+        } catch (innerErr) {
+          cleanup(false);
+        }
       });
     } catch (err) {
       console.warn('[K1G] TCP probe failed:', err);

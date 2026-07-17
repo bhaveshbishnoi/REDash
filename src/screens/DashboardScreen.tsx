@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ImageBackground, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
-import { getSpeedIcon } from '../utils/calculations';
 import { startTrip, endTrip, recordTripSegment } from '../services/tripService';
 import { setBikeDisconnected } from '../store/bikeSlice';
 import { disconnectFromTripper } from '../services/wifiService';
+import LiveSpeedometer from '../components/LiveSpeedometer';
 
 export default function DashboardScreen() {
   const dispatch = useDispatch();
   const { ssid, k1gConnected } = useSelector((state: RootState) => state.bike);
+  const wallpaperUrl = useSelector((state: RootState) => state.settings.wallpaperUrl);
 
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [maxSpeed, setMaxSpeed] = useState(0);
-  const [wallpaperPath, setWallpaperPath] = useState<string | null>(null);
   const [isRiding, setIsRiding] = useState(false);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
 
@@ -33,19 +33,17 @@ export default function DashboardScreen() {
         {
           accuracy: Location.Accuracy.High,
           timeInterval: 1000,
-          distanceInterval: 10
+          distanceInterval: 5
         },
         (location) => {
-          // Speed is in m/s, convert to km/h
           const speedInKmH = (location.coords.speed || 0) * 3.6;
-          const displaySpeed = Math.max(0, speedInKmH);
+          const displaySpeed = Math.max(0, Math.round(speedInKmH));
 
           setCurrentSpeed(displaySpeed);
-
           setMaxSpeed(prev => Math.max(prev, displaySpeed));
 
           if (isRiding && activeTripId) {
-            recordTripSegment(activeTripId, displaySpeed);
+            recordTripSegment(activeTripId, displaySpeed, location.coords);
           }
         }
       );
@@ -62,18 +60,16 @@ export default function DashboardScreen() {
 
   const handleStartRide = async () => {
     if (isRiding) {
-      // End ride
       if (activeTripId) {
         await endTrip(activeTripId);
       }
       setIsRiding(false);
       setActiveTripId(null);
     } else {
-      // Start ride
       const tripId = await startTrip();
       setActiveTripId(tripId);
       setIsRiding(true);
-      setMaxSpeed(0); // reset max speed for new ride
+      setMaxSpeed(0);
     }
   };
 
@@ -86,178 +82,214 @@ export default function DashboardScreen() {
 
   const isDay = new Date().getHours() >= 6 && new Date().getHours() < 18;
 
-  return (
-    <ImageBackground
-      source={wallpaperPath ? { uri: wallpaperPath } : require('../../assets/images/splash-icon.png')}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      <View style={styles.overlay}>
-        <View style={styles.header}>
+  const content = (
+    <View style={styles.overlay}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B0E14" />
+      <View style={styles.header}>
+        <View style={styles.networkBadge}>
           <MaterialCommunityIcons
             name={ssid === 'OFFLINE_MODE' ? 'wifi-off' : 'wifi'}
             size={14}
-            color={ssid === 'OFFLINE_MODE' ? '#888' : '#4CAF50'}
+            color={ssid === 'OFFLINE_MODE' ? '#888' : '#00E676'}
           />
           <Text style={styles.networkText}>
-            {ssid === 'OFFLINE_MODE' ? 'Offline Mode' : ssid}
+            {ssid === 'OFFLINE_MODE' ? 'Offline Mode' : ssid || 'Dash Connected'}
           </Text>
-          {k1gConnected && (
-            <View style={styles.k1gBadge}>
-              <MaterialCommunityIcons name="check-circle" size={10} color="#000" />
-              <Text style={styles.k1gBadgeText}>Dash Synced</Text>
-            </View>
-          )}
         </View>
-
-        {/* Speed Display */}
-        <Text style={styles.speedText}>
-          {Math.round(currentSpeed)}
-        </Text>
-        <Text style={styles.speedLabel}>km/h</Text>
-
-        {/* Speed Icon */}
-        <MaterialCommunityIcons 
-          name={getSpeedIcon(currentSpeed) as any} 
-          size={70} 
-          color="#ff4500" 
-          style={{ marginBottom: 20 }} 
-        />
-
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statRow}>
-            <MaterialCommunityIcons name="speedometer" size={20} color="#fff" style={styles.statIcon} />
-            <Text style={styles.statText}>
-              Max Speed: {Math.round(maxSpeed)} km/h
-            </Text>
+        {k1gConnected && (
+          <View style={styles.k1gBadge}>
+            <MaterialCommunityIcons name="check-circle" size={12} color="#000" />
+            <Text style={styles.k1gBadgeText}>Telemetry Active</Text>
           </View>
-          <View style={styles.statRow}>
-            <MaterialCommunityIcons name={currentSpeed > 50 ? 'highway' : 'city'} size={20} color="#fff" style={styles.statIcon} />
-            <Text style={styles.statText}>
-              Terrain: {currentSpeed > 50 ? 'Highway' : 'City'}
-            </Text>
-          </View>
-          <View style={styles.statRow}>
-            <MaterialCommunityIcons name={isDay ? 'weather-sunny' : 'weather-night'} size={20} color="#fff" style={styles.statIcon} />
-            <Text style={styles.statText}>
-              Time: {isDay ? 'Day' : 'Night'}
-            </Text>
-          </View>
+        )}
+      </View>
+
+      {/* Speedometer Gauge */}
+      <LiveSpeedometer speed={currentSpeed} maxSpeed={maxSpeed} />
+
+      {/* Stats Cards */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <MaterialCommunityIcons name="speedometer" size={22} color="#FF5722" />
+          <Text style={styles.statLabel}>MAX SPEED</Text>
+          <Text style={styles.statValue}>{maxSpeed} km/h</Text>
         </View>
-
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            onPress={handleStartRide}
-            style={[styles.button, { backgroundColor: isRiding ? '#ff4500' : '#00ff00' }]}
-          >
-            <Text style={[styles.buttonText, { color: isRiding ? '#fff' : '#000' }]}>
-              {isRiding ? 'End Ride' : 'Start Ride'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleDisconnect}
-            style={[styles.button, { backgroundColor: '#333' }]}
-          >
-            <Text style={styles.buttonText}>
-              Disconnect
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.statCard}>
+          <MaterialCommunityIcons name={currentSpeed > 50 ? 'highway' : 'city'} size={22} color="#2196F3" />
+          <Text style={styles.statLabel}>TERRAIN</Text>
+          <Text style={styles.statValue}>{currentSpeed > 50 ? 'Highway' : 'Urban'}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <MaterialCommunityIcons name={isDay ? 'weather-sunny' : 'weather-night'} size={22} color="#FFB300" />
+          <Text style={styles.statLabel}>SESSION</Text>
+          <Text style={styles.statValue}>{isRiding ? 'Riding' : 'Standby'}</Text>
         </View>
       </View>
-    </ImageBackground>
+
+      {/* Action Buttons */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          onPress={handleStartRide}
+          style={[styles.rideButton, isRiding ? styles.rideButtonActive : styles.rideButtonStart]}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons
+            name={isRiding ? 'stop-circle-outline' : 'play-circle-outline'}
+            size={22}
+            color="#fff"
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.rideButtonText}>
+            {isRiding ? 'End Ride Tracking' : 'Start Ride Tracking'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleDisconnect}
+          style={styles.disconnectButton}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="power" size={20} color="#FF5722" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
+
+  if (wallpaperUrl && wallpaperUrl !== '') {
+    return (
+      <ImageBackground source={{ uri: wallpaperUrl }} style={styles.container} resizeMode="cover">
+        {content}
+      </ImageBackground>
+    );
+  }
+
+  return <View style={[styles.container, styles.darkContainer]}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#111'
+    backgroundColor: '#0B0E14',
+  },
+  darkContainer: {
+    backgroundColor: '#0B0E14',
   },
   overlay: {
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 30,
-    borderRadius: 20,
-    width: '85%'
+    justifyContent: 'space-between',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    gap: 10
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 10,
+    marginTop: 10,
+  },
+  networkBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#161B26',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#262D3D',
   },
   networkText: {
-    color: '#ccc',
-    fontSize: 14,
+    color: '#E0E6ED',
+    fontSize: 13,
+    fontWeight: '600',
   },
   k1gBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#00ff00',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    overflow: 'hidden',
+    gap: 5,
+    backgroundColor: '#00E676',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   k1gBadgeText: {
     color: '#000',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  speedText: {
-    fontSize: 84,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: -10
-  },
-  speedLabel: {
-    fontSize: 18,
-    color: '#ccc',
-    marginBottom: 20
-  },
-  iconText: {
-    fontSize: 70,
-    marginBottom: 20
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   statsContainer: {
-    marginTop: 20,
-    gap: 10,
-    alignItems: 'center'
-  },
-  statRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+    marginVertical: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#151A24',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#222938',
   },
-  statIcon: {
-    marginRight: 8,
+  statLabel: {
+    color: '#8A99AD',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 8,
+    marginBottom: 4,
+    letterSpacing: 1,
   },
-  statText: {
-    color: '#fff',
-    fontSize: 16,
+  statValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 15,
-    marginTop: 40
+    alignItems: 'center',
+    width: '100%',
+    gap: 14,
+    marginTop: 10,
   },
-  button: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    minWidth: 120,
-    alignItems: 'center'
+  rideButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  buttonText: {
-    color: '#fff',
+  rideButtonStart: {
+    backgroundColor: '#FF5722',
+  },
+  rideButtonActive: {
+    backgroundColor: '#D32F2F',
+    shadowColor: '#D32F2F',
+  },
+  rideButtonText: {
+    color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 16
-  }
+    fontSize: 16,
+  },
+  disconnectButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: '#161B26',
+    borderWidth: 1,
+    borderColor: '#FF572244',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
