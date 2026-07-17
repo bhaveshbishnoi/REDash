@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
@@ -12,13 +13,26 @@ import LiveSpeedometer from '../components/LiveSpeedometer';
 
 export default function DashboardScreen() {
   const dispatch = useDispatch();
+  const router = useRouter();
   const { ssid, k1gConnected } = useSelector((state: RootState) => state.bike);
-  const wallpaperUrl = useSelector((state: RootState) => state.settings.wallpaperUrl);
 
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [maxSpeed, setMaxSpeed] = useState(0);
-  const [isRiding, setIsRiding] = useState(false);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
+
+  // Automatically start trip & telemetry services on mount / connection
+  useEffect(() => {
+    let isMounted = true;
+    const autoStartServices = async () => {
+      if (!activeTripId && isMounted) {
+        console.log('[Dashboard] Auto-starting ride segment & telemetry tracking…');
+        const tripId = await startTrip();
+        if (isMounted) setActiveTripId(tripId);
+      }
+    };
+    autoStartServices();
+    return () => { isMounted = false; };
+  }, [activeTripId]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -43,7 +57,8 @@ export default function DashboardScreen() {
           setCurrentSpeed(displaySpeed);
           setMaxSpeed(prev => Math.max(prev, displaySpeed));
 
-          if (isRiding && activeTripId) {
+          // Automatically record segment & telemetry in background
+          if (activeTripId) {
             recordTripSegment(activeTripId, displaySpeed, location.coords);
           }
         }
@@ -57,24 +72,13 @@ export default function DashboardScreen() {
         subscription.remove();
       }
     };
-  }, [isRiding, activeTripId]);
-
-  const handleStartRide = async () => {
-    if (isRiding) {
-      if (activeTripId) {
-        await endTrip(activeTripId);
-      }
-      setIsRiding(false);
-      setActiveTripId(null);
-    } else {
-      const tripId = await startTrip();
-      setActiveTripId(tripId);
-      setIsRiding(true);
-      setMaxSpeed(0);
-    }
-  };
+  }, [activeTripId]);
 
   const handleDisconnect = async () => {
+    if (activeTripId) {
+      await endTrip(activeTripId);
+      setActiveTripId(null);
+    }
     if (ssid && ssid !== 'OFFLINE_MODE') {
       await disconnectFromTripper();
     }
@@ -83,92 +87,71 @@ export default function DashboardScreen() {
 
   const isDay = new Date().getHours() >= 6 && new Date().getHours() < 18;
 
-  const content = (
-    <View style={styles.overlay}>
-      <StatusBar barStyle="light-content" backgroundColor="#0B0E14" />
-      <View style={styles.header}>
-        <View style={styles.networkBadge}>
-          <MaterialCommunityIcons
-            name={ssid === 'OFFLINE_MODE' ? 'wifi-off' : 'wifi'}
-            size={14}
-            color={ssid === 'OFFLINE_MODE' ? '#888' : '#00E676'}
-          />
-          <Text style={styles.networkText}>
-            {ssid === 'OFFLINE_MODE' ? 'Offline Mode' : ssid || 'Dash Connected'}
-          </Text>
-        </View>
-        {k1gConnected && (
-          <View style={styles.k1gBadge}>
-            <MaterialCommunityIcons name="check-circle" size={12} color="#000" />
-            <Text style={styles.k1gBadgeText}>Telemetry Active</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Speedometer Gauge */}
-      <LiveSpeedometer speed={currentSpeed} maxSpeed={maxSpeed} />
-
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <MaterialCommunityIcons name="speedometer" size={22} color="#FF5722" />
-          <Text style={styles.statLabel}>MAX SPEED</Text>
-          <Text style={styles.statValue}>{maxSpeed} km/h</Text>
-        </View>
-        <View style={styles.statCard}>
-          <MaterialCommunityIcons name={currentSpeed > 50 ? 'highway' : 'city'} size={22} color="#2196F3" />
-          <Text style={styles.statLabel}>TERRAIN</Text>
-          <Text style={styles.statValue}>{currentSpeed > 50 ? 'Highway' : 'Urban'}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <MaterialCommunityIcons name={isDay ? 'weather-sunny' : 'weather-night'} size={22} color="#FFB300" />
-          <Text style={styles.statLabel}>SESSION</Text>
-          <Text style={styles.statValue}>{isRiding ? 'Riding' : 'Standby'}</Text>
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          onPress={handleStartRide}
-          style={[styles.rideButton, isRiding ? styles.rideButtonActive : styles.rideButtonStart]}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons
-            name={isRiding ? 'stop-circle-outline' : 'play-circle-outline'}
-            size={22}
-            color="#fff"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.rideButtonText}>
-            {isRiding ? 'End Ride Tracking' : 'Start Ride Tracking'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleDisconnect}
-          style={styles.disconnectButton}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="power" size={20} color="#FF5722" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  if (wallpaperUrl && wallpaperUrl !== '') {
-    return (
-      <ImageBackground source={{ uri: wallpaperUrl }} style={styles.container} resizeMode="cover">
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-          {content}
-        </SafeAreaView>
-      </ImageBackground>
-    );
-  }
-
   return (
     <SafeAreaView style={[styles.container, styles.darkContainer]} edges={['top', 'left', 'right']}>
-      {content}
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="#0B0E14" />
+        <View style={styles.header}>
+          <View style={styles.networkBadge}>
+            <MaterialCommunityIcons
+              name={ssid === 'OFFLINE_MODE' ? 'wifi-off' : 'wifi'}
+              size={14}
+              color={ssid === 'OFFLINE_MODE' ? '#888' : '#00E676'}
+            />
+            <Text style={styles.networkText}>
+              {ssid === 'OFFLINE_MODE' ? 'Offline Mode' : ssid || 'Dash Connected'}
+            </Text>
+          </View>
+          <View style={styles.k1gBadge}>
+            <MaterialCommunityIcons name="check-circle" size={12} color="#000" />
+            <Text style={styles.k1gBadgeText}>
+              {k1gConnected ? 'K1G Sync Active ⚡' : 'Auto-Track Active ⚡'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Speedometer Gauge */}
+        <LiveSpeedometer speed={currentSpeed} maxSpeed={maxSpeed} />
+
+        {/* Stats Grid */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="speedometer" size={22} color="#FF5722" />
+            <Text style={styles.statLabel}>TOP SPEED</Text>
+            <Text style={styles.statValue}>{maxSpeed} km/h</Text>
+          </View>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="road-variant" size={22} color="#00E676" />
+            <Text style={styles.statLabel}>MODE</Text>
+            <Text style={styles.statValue}>{currentSpeed > 50 ? 'Highway' : 'Urban'}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name={isDay ? 'weather-sunny' : 'weather-night'} size={22} color="#FFB300" />
+            <Text style={styles.statLabel}>STATUS</Text>
+            <Text style={styles.statValue}>Auto-Syncing</Text>
+          </View>
+        </View>
+
+        {/* Action & Auto-Tracking Bar */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/map')}
+            style={styles.mapShortcutBtn}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="map-legend" size={20} color="#FF5722" />
+            <Text style={styles.mapShortcutText}>View Live Route</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDisconnect}
+            style={styles.disconnectButton}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="power" size={20} color="#FF5722" />
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -264,27 +247,22 @@ const styles = StyleSheet.create({
     gap: 14,
     marginTop: 10,
   },
-  rideButton: {
+  mapShortcutBtn: {
     flex: 1,
     flexDirection: 'row',
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FF5722',
     shadowColor: '#FF5722',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 6,
+    gap: 8,
   },
-  rideButtonStart: {
-    backgroundColor: '#FF5722',
-  },
-  rideButtonActive: {
-    backgroundColor: '#D32F2F',
-    shadowColor: '#D32F2F',
-  },
-  rideButtonText: {
+  mapShortcutText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
