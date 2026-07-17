@@ -43,7 +43,7 @@ export default function Index() {
     );
   }
 
-  if (appState === 'connect' || !connected) {
+  if (appState === 'connect' && !connected) {
     return <ConnectDashScreen />;
   }
 

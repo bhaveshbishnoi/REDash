@@ -13,7 +13,9 @@ export default function StatsScreen() {
   const [allTrips, setAllTrips] = useState<any[]>([]);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (!stats) {
+      setLoading(true);
+    }
     try {
       const trips = await getAllTrips() as any[];
       setAllTrips(trips);
@@ -54,15 +56,17 @@ export default function StatsScreen() {
       });
     } catch (e) {
       console.warn('Failed to load stats:', e);
-      setStats({
-        totalDistance: '0.0', totalRides: 0, bestSpeed: '0.0',
-        avgSpeed: '0', longestRideTime: '0', totalRidingTime: '0',
-        byDay: { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 }
-      });
+      if (!stats) {
+        setStats({
+          totalDistance: '0.0', totalRides: 0, bestSpeed: '0.0',
+          avgSpeed: '0', longestRideTime: '0', totalRidingTime: '0',
+          byDay: { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 }
+        });
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [stats]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 

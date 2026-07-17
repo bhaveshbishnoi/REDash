@@ -11,7 +11,9 @@ export default function TripHistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       const loadTrips = async () => {
-        setLoading(true);
+        if (trips.length === 0) {
+          setLoading(true);
+        }
         try {
           const tripsData = await getAllTrips();
           setTrips(tripsData as any[]);
@@ -22,7 +24,7 @@ export default function TripHistoryScreen() {
         }
       };
       loadTrips();
-    }, [])
+    }, [trips.length])
   );
 
   const formatDuration = (minutes: number) => {

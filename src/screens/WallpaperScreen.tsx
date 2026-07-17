@@ -7,21 +7,27 @@ import { setWallpaper } from '../store/settingsSlice';
 const OFFLINE_WALLPAPERS = [
   {
     id: 'wp1',
-    title: 'Desert Guerrilla 450',
-    imageUrl: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=600&q=80',
-    category: 'bike',
+    title: 'Guerrilla Desert Rally',
+    imageUrl: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=800&q=80',
+    category: 'Rally Dash',
   },
   {
     id: 'wp2',
-    title: 'Mountain Pass',
-    imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
-    category: 'landscape',
+    title: 'Obsidian Carbon Grid',
+    imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+    category: 'Dark Tech',
   },
   {
     id: 'wp3',
-    title: 'Cyberpunk Neon Street',
-    imageUrl: 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?auto=format&fit=crop&w=600&q=80',
-    category: 'abstract',
+    title: 'Cyberpunk Neon Telemetry',
+    imageUrl: 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?auto=format&fit=crop&w=800&q=80',
+    category: 'Neon Pulse',
+  },
+  {
+    id: 'wp4',
+    title: 'Himalayan High Pass',
+    imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
+    category: 'Expedition',
   }
 ];
 
