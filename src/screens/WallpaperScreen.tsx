@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import * as ImagePicker from 'expo-image-picker';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
 import { setWallpaper } from '../store/settingsSlice';
 import { k1gProtocol } from '../services/k1gProtocol';
@@ -58,10 +60,56 @@ export default function WallpaperScreen() {
     }
   };
 
+  const handlePickFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Needed', 'Please allow photo gallery access to upload custom photos for your bike dash.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        const customItem = {
+          id: `custom_${Date.now()}`,
+          title: 'Custom Gallery Photo',
+          imageUrl: selectedUri,
+          category: 'Personal Gallery',
+        };
+        setWallpapers((prev) => [customItem, ...prev]);
+        await handleSelect(selectedUri);
+      }
+    } catch (error) {
+      console.warn('ImagePicker error:', error);
+      Alert.alert('Error', 'Failed to pick photo from gallery.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Tripper Dash Wallpapers</Text>
       <Text style={styles.subtitle}>Push custom background themes directly to your bike dash display</Text>
+
+      {/* Pick from Gallery Button */}
+      {!loading && !syncing && (
+        <TouchableOpacity style={styles.galleryButton} onPress={handlePickFromGallery} activeOpacity={0.8}>
+          <View style={styles.galleryIconCircle}>
+            <MaterialCommunityIcons name="image-plus" size={24} color="#FF5722" />
+          </View>
+          <View style={styles.galleryTextWrap}>
+            <Text style={styles.galleryButtonTitle}>Fetch Photo from Gallery</Text>
+            <Text style={styles.galleryButtonSub}>Choose any photo from your device camera roll for your Tripper Dash</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#888888" />
+        </TouchableOpacity>
+      )}
 
       {loading || syncing ? (
         <View style={styles.loaderWrap}>
@@ -117,7 +165,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#888888',
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  galleryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#181E2C',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FF572244',
+    marginBottom: 16,
+    gap: 12,
+  },
+  galleryIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#0F131C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FF5722',
+  },
+  galleryTextWrap: {
+    flex: 1,
+  },
+  galleryButtonTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  galleryButtonSub: {
+    color: '#8A99AD',
+    fontSize: 11,
+    marginTop: 2,
   },
   loader: {
     marginTop: 40,
