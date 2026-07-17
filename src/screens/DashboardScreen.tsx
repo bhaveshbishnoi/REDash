@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ImageBackground, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
@@ -158,12 +159,18 @@ export default function DashboardScreen() {
   if (wallpaperUrl && wallpaperUrl !== '') {
     return (
       <ImageBackground source={{ uri: wallpaperUrl }} style={styles.container} resizeMode="cover">
-        {content}
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          {content}
+        </SafeAreaView>
       </ImageBackground>
     );
   }
 
-  return <View style={[styles.container, styles.darkContainer]}>{content}</View>;
+  return (
+    <SafeAreaView style={[styles.container, styles.darkContainer]} edges={['top', 'left', 'right']}>
+      {content}
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
