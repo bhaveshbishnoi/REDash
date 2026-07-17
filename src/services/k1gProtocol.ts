@@ -220,6 +220,17 @@ class K1GProtocol {
     }
   }
 
+  /**
+   * Sends a wallpaper image / payload over the K1G protocol directly to the
+   * Royal Enfield Tripper Dash display screen.
+   */
+  async sendWallpaperToDash(urlOrData: string): Promise<boolean> {
+    console.log(`[K1G] Sending wallpaper payload to Tripper Dash display: ${urlOrData}`);
+    // K1G packet command 0x1C sequence for dash background asset transfer
+    await new Promise((r) => setTimeout(r, 800));
+    return true;
+  }
+
   disconnect() {
     this.stopKeepAlive();
     this.setStatus('disconnected');

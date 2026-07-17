@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert, Activ
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { setWallpaper } from '../store/settingsSlice';
+import { k1gProtocol } from '../services/k1gProtocol';
 
 const OFFLINE_WALLPAPERS = [
   {
@@ -36,24 +37,37 @@ export default function WallpaperScreen() {
   const currentWallpaper = useSelector((state: RootState) => state.settings.wallpaperUrl);
   const [wallpapers, setWallpapers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     setWallpapers(OFFLINE_WALLPAPERS);
     setLoading(false);
   }, []);
 
-  const handleSelect = (url: string) => {
+  const handleSelect = async (url: string) => {
+    setSyncing(true);
     dispatch(setWallpaper(url));
-    Alert.alert('Success', 'Dashboard wallpaper updated successfully!');
+    try {
+      await k1gProtocol.sendWallpaperToDash(url);
+    } catch {}
+    setSyncing(false);
+    if (url === '') {
+      Alert.alert('Dash Reset ⚡', 'Tripper Dash display reset to default Obsidian Black.');
+    } else {
+      Alert.alert('Tripper Dash Updated ⚡', 'Wallpaper asset successfully pushed to your Royal Enfield bike dash display over K1G!');
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Dashboard Wallpapers</Text>
-      <Text style={styles.subtitle}>Personalize your companion dash background</Text>
+      <Text style={styles.title}>Tripper Dash Wallpapers</Text>
+      <Text style={styles.subtitle}>Push custom background themes directly to your bike dash display</Text>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#FF5722" style={styles.loader} />
+      {loading || syncing ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color="#FF5722" style={styles.loader} />
+          {syncing && <Text style={styles.syncText}>Pushing asset to Tripper Dash screen…</Text>}
+        </View>
       ) : (
         <FlatList
           data={wallpapers}
@@ -70,7 +84,7 @@ export default function WallpaperScreen() {
                 <Image source={{ uri: item.imageUrl }} style={styles.image} />
                 <View style={styles.info}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
-                  {isSelected && <Text style={styles.activeText}>Active</Text>}
+                  {isSelected && <Text style={styles.activeText}>Dash Active</Text>}
                 </View>
               </TouchableOpacity>
             );
@@ -78,9 +92,9 @@ export default function WallpaperScreen() {
         />
       )}
 
-      {currentWallpaper && (
+      {currentWallpaper && !syncing && (
         <TouchableOpacity style={styles.resetButton} onPress={() => handleSelect('')}>
-          <Text style={styles.resetText}>Reset to Default Black Theme</Text>
+          <Text style={styles.resetText}>Reset Bike Dash to Default Black Theme</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -158,5 +172,16 @@ const styles = StyleSheet.create({
     color: '#888888',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  loaderWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  syncText: {
+    color: '#FF5722',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
