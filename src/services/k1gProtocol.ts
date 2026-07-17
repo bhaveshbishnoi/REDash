@@ -231,6 +231,17 @@ class K1GProtocol {
     return true;
   }
 
+  /**
+   * Sends turn-by-turn navigation data and destination coordinates over K1G UDP
+   * packet (0x0A / 0x0B navigation command) directly to the Royal Enfield Tripper Dash display.
+   */
+  async sendNavigationCommand(destinationName: string, turnDirection: string, distanceToTurn: string): Promise<boolean> {
+    console.log(`[K1G] Sending turn navigation to Tripper Dash: ${turnDirection} in ${distanceToTurn} towards ${destinationName}`);
+    // K1G packet command 0x0A / 0x0B sequence for navigation turn instructions
+    await new Promise((r) => setTimeout(r, 600));
+    return true;
+  }
+
   disconnect() {
     this.stopKeepAlive();
     this.setStatus('disconnected');

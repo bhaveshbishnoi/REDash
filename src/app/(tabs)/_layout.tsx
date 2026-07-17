@@ -15,7 +15,7 @@ export default function TabsLayout() {
         tabBarIcon: ({ color, focused }) => {
           const icons: Record<string, any> = {
             index: 'motorbike',
-            map: 'map-legend',
+            map: 'map-marker-radius',
             history: 'history',
             stats: 'chart-bar',
             settings: 'cog-outline'
@@ -61,7 +61,7 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: 'Guerrilla 450', headerShown: false }} />
-      <Tabs.Screen name="map" options={{ title: 'Live Ride Map' }} />
+      <Tabs.Screen name="map" options={{ title: 'Dash Maps' }} />
       <Tabs.Screen name="history" options={{ title: 'Trip History' }} />
       <Tabs.Screen name="stats" options={{ title: 'Analytics' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
