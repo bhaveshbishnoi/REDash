@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch } from 'react-redux';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { setBikeConnected, setK1gConnected } from '../store/bikeSlice';
 import {
   connectToTripper,
@@ -293,6 +294,13 @@ export default function ConnectDashScreen() {
     k1gProtocol.disconnect();
   };
 
+  // TODO: REMOVE BEFORE PRODUCTION - Dev mode skip button
+  const handleDevSkip = () => {
+    dispatch(setK1gConnected(true));
+    dispatch(setBikeConnected({ ssid: 'RE_DEV_MODE_450' }));
+    setStep('done');
+  };
+
   // ─── Camera ───────────────────────────────────────────────────────────────
 
   const handleOpenCamera = async () => {
@@ -321,7 +329,7 @@ export default function ConnectDashScreen() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
@@ -500,6 +508,12 @@ export default function ConnectDashScreen() {
               <Text style={styles.manualButtonText}>Manual WiFi Connect (Most Reliable)</Text>
             </TouchableOpacity>
 
+            {/* TODO: REMOVE BEFORE PRODUCTION - Dev mode skip button */}
+            <TouchableOpacity onPress={handleDevSkip} style={styles.devSkipButton} activeOpacity={0.8}>
+              <MaterialCommunityIcons name="fast-forward-outline" size={18} color="#FFD700" />
+              <Text style={styles.devSkipButtonText}>⚡ Skip Connection (Dev Mode)</Text>
+            </TouchableOpacity>
+
           </View>
         )}
 
@@ -609,7 +623,7 @@ export default function ConnectDashScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -736,6 +750,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#2196F355', backgroundColor: '#2196F310', gap: 8,
   },
   manualButtonText: { color: '#2196F3', fontWeight: '700', fontSize: 14 },
+  devSkipButton: {
+    flexDirection: 'row', paddingVertical: 14, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: '#FFD70055', backgroundColor: '#FFD70010', gap: 8,
+  },
+  devSkipButtonText: { color: '#FFD700', fontWeight: '700', fontSize: 14 },
   connectingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     justifyContent: 'center', paddingVertical: 14,
