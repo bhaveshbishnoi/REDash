@@ -139,8 +139,8 @@ export default function DashboardScreen() {
             style={styles.mapShortcutBtn}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons name="map-legend" size={20} color="#FF5722" />
-            <Text style={styles.mapShortcutText}>View Live Route</Text>
+            <MaterialCommunityIcons name="map-marker-radius" size={20} color="#FFFFFF" />
+            <Text style={styles.mapShortcutText}>Dash Maps & Nav</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
