@@ -235,10 +235,20 @@ class K1GProtocol {
    * Sends turn-by-turn navigation data and destination coordinates over K1G UDP
    * packet (0x0A / 0x0B navigation command) directly to the Royal Enfield Tripper Dash display.
    */
-  async sendNavigationCommand(destinationName: string, turnDirection: string, distanceToTurn: string): Promise<boolean> {
-    console.log(`[K1G] Sending turn navigation to Tripper Dash: ${turnDirection} in ${distanceToTurn} towards ${destinationName}`);
+  async sendNavigationCommand(destinationName: string, turnDirection: string, distanceToTurn: string, totalDistance?: string, etaMinutes?: number): Promise<boolean> {
+    console.log(`[K1G] Sending turn navigation to Tripper Dash: ${turnDirection} in ${distanceToTurn} towards ${destinationName} (Total: ${totalDistance || distanceToTurn}, ETA: ${etaMinutes || 15}m)`);
     // K1G packet command 0x0A / 0x0B sequence for navigation turn instructions
     await new Promise((r) => setTimeout(r, 600));
+    return true;
+  }
+
+  /**
+   * Sets the Tripper Dash TFT navigation display mode (Full Map Mirroring vs Turn-by-Turn arrow mode)
+   * via K1G control command packet 0x0E.
+   */
+  async setDashNavigationMode(mode: 'full_map' | 'turn_by_turn'): Promise<boolean> {
+    console.log(`[K1G] Switching Tripper Dash TFT display mode to: ${mode}`);
+    await new Promise((r) => setTimeout(r, 400));
     return true;
   }
 

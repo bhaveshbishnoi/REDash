@@ -41,7 +41,7 @@ export default function MapScreenWeb() {
         )}
         
         <RNView style={styles.marker}>
-          <MaterialCommunityIcons name={"motorcycle" as any} size={32} color="#fff" />
+          <MaterialCommunityIcons name={"motorbike" as any} size={32} color="#fff" />
         </RNView>
 
         <RNView style={styles.coordsPanel}>
